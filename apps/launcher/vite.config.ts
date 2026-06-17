@@ -28,6 +28,12 @@ export default defineConfig({
     strictPort: true,
     // Tauri dev watch: don't open a browser tab
     open: !isTauriDev,
+    // Never watch the Rust crate / its target dir. Cargo locks files there
+    // during `tauri dev`'s rebuilds; watching them throws EBUSY and crashes
+    // the Vite dev server (which runs as Tauri's beforeDevCommand).
+    watch: {
+      ignored: ['**/src-tauri/**'],
+    },
   },
 
   // Tauri uses Vite in prod-build mode; ensure assets are inlined-friendly
