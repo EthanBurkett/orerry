@@ -3,6 +3,10 @@ package gg.orrery.lumen
 import gg.orrery.generated.Tokens
 import net.minecraft.client.font.TextRenderer
 import net.minecraft.client.gui.DrawContext
+import net.minecraft.text.Style
+import net.minecraft.text.StyleSpriteSource
+import net.minecraft.text.Text
+import net.minecraft.util.Identifier
 
 /**
  * LumenDraw — token-driven primitive draw helpers over [DrawContext] (DESIGN_SPEC §5, §6.4).
@@ -19,9 +23,12 @@ import net.minecraft.client.gui.DrawContext
  *
  * --- Yarn 1.21.11 names used ---
  *   DrawContext.fill(int x1, int y1, int x2, int y2, int argb)        = method_25294
- *   DrawContext.drawText(TextRenderer, Text/String, int x, int y, int argb, boolean shadow)
- *                                                                     = method_51439 / method_51433
+ *   DrawContext.drawText(TextRenderer, Text, int x, int y, int argb, boolean shadow)
+ *                                                                     = method_51439
  *   TextRenderer (net.minecraft.client.font.TextRenderer)             = class_327
+ *   Text.literal(String)                                              = method_43470
+ *   Style.EMPTY.withFont(StyleSpriteSource.Font(Identifier))          = method_27704
+ *   StyleSpriteSource.Font(Identifier)                                = class_11721 ctor
  */
 object LumenDraw {
 
@@ -53,15 +60,42 @@ object LumenDraw {
     /**
      * The SINGLE Lumen text helper.
      *
-     * TODO(phase2-msdf): per ADR 0004, Phase 1 glyphs are rasterised with Minecraft's vanilla
-     * [TextRenderer]. This is the ONLY place the vanilla font touches Lumen output; everything
-     * else (color, layout, chrome) is 100% token-driven. Phase 2 swaps this body for the MSDF
-     * custom-typeface atlas in one place. Color still comes from [Tokens.Color]; only the glyph
-     * raster is temporary.
+     * Renders [str] through the vanilla [TextRenderer] using one of Orrery's custom typefaces
+     * (ADR 0005 §3). The glyph is rasterised from the TTF font-provider registered under the
+     * given [font] identifier — NOT Minecraft's pixel font. Supersedes the ADR 0004 vanilla-font
+     * placeholder and the former `TODO(phase2-msdf)` note: Phase 2 uses the native MC TTF
+     * provider path instead of an MSDF GL shader (see ADR 0005 §3 rationale).
      *
-     * @param argb token text color (e.g. [Tokens.Color.textHi]).
+     * A styled [Text] is constructed from [str] with [Style.withFont] pointing at [font], then
+     * drawn via [DrawContext.drawText]. Color still comes from the [argb] token (e.g.
+     * [Tokens.Color.textHi]); only the glyph atlas is ours.
+     *
+     * In 1.21.11, [Style.withFont] takes a [StyleSpriteSource]; [StyleSpriteSource.Font] is the
+     * subtype that wraps an [Identifier] referencing a font JSON under `assets/<ns>/font/<path>.json`.
+     *
+     * @param ctx          the current [DrawContext].
+     * @param textRenderer the client [TextRenderer] (supplied by the calling [Screen]).
+     * @param str          the string to draw.
+     * @param x            left edge in screen pixels.
+     * @param y            top edge in screen pixels.
+     * @param argb         token text color (ARGB int, e.g. [Tokens.Color.textHi]).
+     * @param shadow       whether to draw a drop shadow (default false — Orrery uses token layers).
+     * @param font         the Orrery font identifier (default [LumenFonts.DISPLAY]).
+     *
+     * Yarn 1.21.11: [DrawContext.drawText] with [Text] = method_51439.
      */
-    fun text(ctx: DrawContext, textRenderer: TextRenderer, str: String, x: Int, y: Int, argb: Int, shadow: Boolean = false) {
-        ctx.drawText(textRenderer, str, x, y, argb, shadow)
+    fun text(
+        ctx: DrawContext,
+        textRenderer: TextRenderer,
+        str: String,
+        x: Int,
+        y: Int,
+        argb: Int,
+        shadow: Boolean = false,
+        font: Identifier = LumenFonts.DISPLAY,
+    ) {
+        val styled: Text = Text.literal(str)
+            .setStyle(Style.EMPTY.withFont(StyleSpriteSource.Font(font)))
+        ctx.drawText(textRenderer, styled, x, y, argb, shadow)
     }
 }
