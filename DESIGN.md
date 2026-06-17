@@ -47,6 +47,24 @@ Concentric orbital rings rotating at different rates (`OrbitalMotif`): ambient
 background art (large, faint) and the loading spinner (`Spinner`). Hairline tick
 marks and instrument-readout corners are the supporting texture.
 
+## Custom menu rendering (in-game / Lumen)
+
+SkyBlock menus are **re-rendered as semantic UI, not reskinned chest grids**
+(§5.1; user direction). The chest slots are data; Atlas parses each item into
+`{title, subtitle(s), icon, rarity, backingSlot}` and a per-menu view chooses the
+information architecture. Reference target — the SkyBlock Menu:
+
+- Rounded `surface.1` panel, hairline border, soft shadow.
+- Header: orbital mark + title (display); purse total (mono, tabular, brass) + close.
+- Search field (`surface.2`, hairline, magnifier) that filters entries.
+- 2-column list of **entry cards**: icon tile + title + lore-derived subtitle +
+  chevron; hover state; each card maps to its backing slot (click → `Interaction.clickSlot`).
+- Footer: level + brass progress bar; "Purse … · Bits …" (mono, brass numerals).
+
+Key numerals go in `brass.hi` (§5.2). The generic slot grid is the fallback for
+owned-but-unmodelled containers. Color stays brass/cyan-restrained unless a
+category-accent system is explicitly adopted.
+
 ## Component conventions
 
 - Buttons: `primary` (brass fill, ink-on-brass text), `ghost` (cyan outline,
