@@ -1,7 +1,7 @@
 package gg.orrery.eclipse
 
 import gg.orrery.atlas.AtlasAdapter
-import gg.orrery.lumen.OrreryContainerScreen
+import gg.orrery.lumen.SkyBlockMenuView
 import net.minecraft.client.MinecraftClient
 import net.minecraft.client.gui.screen.Screen
 import net.minecraft.entity.player.PlayerInventory
@@ -81,14 +81,17 @@ object EclipseViews {
         viewFor(handler, title)
 
     /**
-     * Registers all built-in views. Phase 1 maps the SkyBlock main menu
-     * (recognizer id "skyblock_menu") to the Orrery container screen.
+     * Registers all built-in views. The SkyBlock main menu (recognizer id "skyblock_menu") maps
+     * to the Phase 2 semantic card view [SkyBlockMenuView] (ADR 0005 §1; DESIGN.md "Custom menu
+     * rendering") — the mockup's header + search + 2-column entry cards + footer, all from live
+     * slot data. The generic slot grid ([gg.orrery.lumen.OrreryContainerScreen]) remains the
+     * fallback for owned-but-unmodelled containers.
      *
      * Call once at init, after Atlas recognizers are registered.
      */
     fun registerDefaults() {
         register("skyblock_menu") { handler, title, inv ->
-            OrreryContainerScreen(handler, inv, title)
+            SkyBlockMenuView(handler, inv, title)
         }
     }
 

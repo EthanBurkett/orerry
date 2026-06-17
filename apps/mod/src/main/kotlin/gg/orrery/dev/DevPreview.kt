@@ -50,17 +50,26 @@ object DevPreview {
         val client = MinecraftClient.getInstance()
         val player = client.player ?: return
 
-        // A 9x6 chest's worth of mock items, exercising several rarities + lore.
+        // A 9x6 chest's worth of mock items modelled on the REAL SkyBlock main menu, so the
+        // Phase 2 SkyBlockMenuView shows the semantic card list well offline (ADR 0005 §1 / §3
+        // "DevPreview mock is updated to resemble the real SkyBlock menu"). Each entry has a
+        // thematic item + name + lore (rarity line included) so parseEntries yields good
+        // titles/subtitles; one lore line carries a "Purse:" value so the header purse renders.
         val inv = SimpleInventory(54)
-        inv.setStack(10, mock(Items.NETHER_STAR, "§6SkyBlock Menu", listOf("§7Your profile, stats,", "§7and more.", "", "§eClick to open!")))
-        inv.setStack(12, mock(Items.DIAMOND_SWORD, "§5Aspect of the End", listOf("§7Damage: §c+100", "§7Strength: §c+100", "", "§5EPIC SWORD")))
-        inv.setStack(13, mock(Items.GOLDEN_APPLE, "§6Hegemony Artifact", listOf("§7Grants bonus stats.", "", "§6§lLEGENDARY ACCESSORY")))
-        inv.setStack(14, mock(Items.ENCHANTED_BOOK, "§dGiant Killer V", listOf("§7Deal more damage to", "§7high-health enemies.", "", "§9§lRARE")))
-        inv.setStack(15, mock(Items.WHEAT, "§fWheat", listOf("§7A common crop.", "", "§f§lCOMMON")))
-        inv.setStack(16, mock(Items.DRAGON_EGG, "§c§lWither", listOf("§7Catacombs class.", "", "§c§lSPECIAL")))
-        inv.setStack(28, mock(Items.EMERALD, "§aProfile: Mango", listOf("§7Coins: §6128,402", "", "§a§lUNCOMMON")))
+        inv.setStack(10, mock(Items.PLAYER_HEAD, "§aYour Skills", listOf("§7Average level §e24.6", "§7Click to view your skills.", "", "§a§lUNCOMMON")))
+        inv.setStack(11, mock(Items.PAINTING, "§aCollections", listOf("§7412/588 unlocked", "§7Track gathered resources.", "", "§a§lUNCOMMON")))
+        inv.setStack(12, mock(Items.KNOWLEDGE_BOOK, "§eRecipe Book", listOf("§7Browse all known recipes.", "", "§f§lCOMMON")))
+        inv.setStack(13, mock(Items.CRAFTING_TABLE, "§eCrafting Table", listOf("§7Craft items anywhere.", "", "§f§lCOMMON")))
+        inv.setStack(14, mock(Items.EXPERIENCE_BOTTLE, "§bSkyBlock Leveling", listOf("§7Level §e142", "§7Earn rewards as you progress.", "", "§9§lRARE")))
+        inv.setStack(15, mock(Items.ENDER_CHEST, "§9Storage", listOf("§7Access your backpacks", "§7and ender chest.", "", "§9§lRARE")))
+        inv.setStack(16, mock(Items.LEATHER_CHESTPLATE, "§aWardrobe", listOf("§79 armor sets", "§7Swap your equipped armor.", "", "§a§lUNCOMMON")))
+        inv.setStack(19, mock(Items.BONE, "§6Pets", listOf("§712 owned · 1 active", "§7Summon a loyal companion.", "", "§6§lLEGENDARY")))
+        inv.setStack(20, mock(Items.EMERALD, "§eTrades", listOf("§7Trade with NPCs.", "", "§f§lCOMMON")))
+        inv.setStack(21, mock(Items.COMPASS, "§bFast Travel", listOf("§7Warp across the islands.", "", "§9§lRARE")))
+        inv.setStack(22, mock(Items.NETHER_STAR, "§6Profile: Mango", listOf("§7Purse: §6184,402,118", "§7Bits: §b12,840", "", "§6§lLEGENDARY")))
+        inv.setStack(23, mock(Items.CLOCK, "§bCalendar & Events", listOf("§7View upcoming events.", "", "§9§lRARE")))
+        inv.setStack(24, mock(Items.DIAMOND, "§bMinions", listOf("§7Manage your minions.", "", "§9§lRARE")))
         inv.setStack(31, mock(Items.BARRIER, "§cClose", listOf("§7Close this menu.")))
-        inv.setStack(34, mock(Items.CLOCK, "§bCalendar & Events", listOf("§7View upcoming events.", "", "§9§lRARE")))
 
         val handler = GenericContainerScreenHandler(
             ScreenHandlerType.GENERIC_9X6, 0, player.inventory, inv, 6,
