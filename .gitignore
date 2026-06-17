@@ -22,6 +22,9 @@ apps/launcher/src-tauri/target/
 apps/mod/build/
 apps/mod/.gradle/
 
+# Fabric Loom runClient working directory (runtime game files)
+apps/mod/run/
+
 # Logs / env
 *.log
 .env
