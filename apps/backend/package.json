@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "build": "cargo build",
+    "dev": "cargo run -p horizon",
     "test": "cargo test",
     "lint": "cargo clippy",
     "check": "cargo check"

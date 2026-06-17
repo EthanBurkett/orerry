@@ -6,7 +6,8 @@
   "description": "Observatory — the Orrery launcher (Tauri 2 + Svelte 5).",
   "scripts": {
     "build": "vite build",
-    "dev": "vite",
+    "dev": "tauri dev",
+    "dev:web": "vite",
     "typecheck": "svelte-check --tsconfig ./tsconfig.json",
     "lint": "svelte-check --tsconfig ./tsconfig.json",
     "tauri": "tauri"

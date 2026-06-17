@@ -4,6 +4,8 @@
   "identifier": "gg.orrery.observatory",
   "version": "0.1.0",
   "build": {
+    "beforeDevCommand": "pnpm dev:web",
+    "beforeBuildCommand": "pnpm build",
     "frontendDist": "../dist",
     "devUrl": "http://localhost:1420"
   },

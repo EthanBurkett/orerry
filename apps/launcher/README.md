@@ -34,15 +34,19 @@ No hardcoded hex colors appear in any component. All colors derive from `var(--c
 ## Development
 
 ```bash
-# From repo root:
-pnpm dev              # starts all dev servers (via turbo)
+# From repo root — one command brings up everything concurrently (turbo):
+#   design-tokens build → then launcher (Tauri window + Vite) + backend horizon
+pnpm dev
 
 # From apps/launcher:
-pnpm dev              # Vite dev server only (no Tauri window)
-pnpm tauri dev        # Vite dev server + Tauri window
+pnpm dev              # full launcher: Tauri window (its beforeDevCommand starts Vite)
+pnpm dev:web          # Vite dev server only, http://localhost:1420 (browser preview, no Tauri)
 pnpm build            # Vite production build
 pnpm typecheck        # svelte-check
 ```
+
+Note: `tauri dev` starts its own Vite via `beforeDevCommand` (`pnpm dev:web`),
+so don't run `pnpm dev:web` separately at the same time — port 1420 is strict.
 
 ## Rust core (`src-tauri`)
 
