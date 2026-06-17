@@ -1,6 +1,7 @@
 package gg.orrery.atlas
 
 import net.minecraft.component.DataComponentTypes
+import net.minecraft.entity.player.PlayerInventory
 import net.minecraft.item.ItemStack
 import net.minecraft.nbt.NbtCompound
 import net.minecraft.nbt.NbtElement
@@ -87,11 +88,19 @@ object AtlasAdapter {
      */
     fun parse(title: Text, handler: ScreenHandler): ParsedMenu {
         val strippedTitle = stripCodes(title.getString())
-        val slots = handler.slots
-        val size = slots.size
 
-        val items: List<ParsedItem?> = slots.map { slot ->
-            parseItem(slot.index, slot.stack)
+        // Container slots ONLY — exclude the player inventory (hotbar + main inv).
+        // A SkyBlock menu IS the container's slots; the player's own items must
+        // never appear as menu entries (data-layer fix). Container slots are
+        // registered with the handler before the player inventory, so a slot's
+        // position in this filtered list equals its clickSlot slot id — that is
+        // the index the backing-slot round-trip and the icon lookup both use, so
+        // the indices stay aligned (punch-list #1 + #2).
+        val containerSlots = handler.slots.filter { it.inventory !is PlayerInventory }
+        val size = containerSlots.size
+
+        val items: List<ParsedItem?> = containerSlots.mapIndexed { slotId, slot ->
+            parseItem(slotId, slot.stack)
         }
 
         return ParsedMenu(
