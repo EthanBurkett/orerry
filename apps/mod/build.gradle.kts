@@ -56,6 +56,13 @@ dependencies {
 
     // Fabric Language Kotlin — ships Kotlin stdlib + coroutines into the mod environment
     modImplementation("net.fabricmc:fabric-language-kotlin:$fabricLangKtVersion")
+
+    // Unit testing (JUnit 5 via kotlin-test). Tests are pure-JVM: the Atlas core
+    // and the §11 fitness scan must NOT depend on Minecraft runtime types so they
+    // run without a game classpath.
+    testImplementation(kotlin("test"))
+    testImplementation("org.jetbrains.kotlin:kotlin-test-junit5")
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
 kotlin {
@@ -65,6 +72,10 @@ kotlin {
 }
 
 tasks {
+    test {
+        useJUnitPlatform()
+    }
+
     withType<JavaCompile>().configureEach {
         options.encoding = "UTF-8"
         options.release = javaTarget
