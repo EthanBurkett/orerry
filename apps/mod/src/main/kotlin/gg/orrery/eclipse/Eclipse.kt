@@ -27,4 +27,16 @@ package gg.orrery.eclipse
  *   only through [Interaction].
  * - Unrecognized menus fall through to vanilla untouched (degradation, never breakage).
  */
-object Eclipse
+object Eclipse {
+
+    /**
+     * Registers Eclipse's built-in menu views (the recognizer-id -> Lumen-screen factories
+     * in [EclipseViews]). Call once at client init, after Atlas recognizers are registered,
+     * so the interception mixin has a live view to swap in.
+     *
+     * Phase 1 wires the SkyBlock main menu ("skyblock_menu") to the Orrery container screen.
+     */
+    fun registerDefaults() {
+        EclipseViews.registerDefaults()
+    }
+}

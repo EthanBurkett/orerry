@@ -35,11 +35,13 @@ class ComplianceFitnessTest {
 
     companion object {
         /**
-         * Path to the main Kotlin source tree, resolved relative to the Gradle working
-         * directory (`apps/mod`). Gradle's `test` task sets the working directory to the
-         * project directory, so `File("src/main/kotlin")` resolves correctly.
+         * Main source roots scanned, resolved relative to the Gradle working directory
+         * (`apps/mod`). Both Kotlin AND Java are scanned: the interception Mixin lives in
+         * `src/main/java`, and §11 must cover it too — no source path may bypass the
+         * chokepoint. Gradle's `test` task sets the working directory to the project dir,
+         * so these relative paths resolve correctly.
          */
-        private val SOURCE_ROOT = File("src/main/kotlin")
+        private val SOURCE_ROOTS = listOf(File("src/main/kotlin"), File("src/main/java"))
 
         /**
          * The one file that legitimately contains the vanilla clickSlot call.
@@ -82,15 +84,19 @@ class ComplianceFitnessTest {
          */
         private fun File.forwardSlashPath(): String = path.replace('\\', '/')
 
-        /** Collects all `.kt` files under [dir] recursively. */
-        private fun allKotlinFiles(dir: File): List<File> =
-            dir.walkTopDown().filter { it.isFile && it.extension == "kt" }.toList()
+        /** Collects all Kotlin + Java source files under the existing [SOURCE_ROOTS]. */
+        private fun allSourceFiles(): List<File> =
+            SOURCE_ROOTS.filter { it.isDirectory }.flatMap { root ->
+                root.walkTopDown().filter { it.isFile && (it.extension == "kt" || it.extension == "java") }
+            }
     }
 
     @Test
     fun `source root exists`() {
-        assertTrue(SOURCE_ROOT.exists(), "Source root does not exist: ${SOURCE_ROOT.absolutePath}")
-        assertTrue(SOURCE_ROOT.isDirectory, "Source root is not a directory: ${SOURCE_ROOT.absolutePath}")
+        val kotlinRoot = SOURCE_ROOTS.first()
+        assertTrue(kotlinRoot.exists(), "Source root does not exist: ${kotlinRoot.absolutePath}")
+        assertTrue(kotlinRoot.isDirectory, "Source root is not a directory: ${kotlinRoot.absolutePath}")
+        assertTrue(allSourceFiles().isNotEmpty(), "No source files found under $SOURCE_ROOTS")
     }
 
     /**
@@ -101,7 +107,7 @@ class ComplianceFitnessTest {
     fun `vanilla clickSlot is only called from the compliance chokepoint`() {
         val violations = mutableListOf<String>()
 
-        for (file in allKotlinFiles(SOURCE_ROOT)) {
+        for (file in allSourceFiles()) {
             val normalised = file.forwardSlashPath()
             // The chokepoint itself is allowed to contain the vanilla call.
             if (normalised.endsWith(CHOKEPOINT_FILE)) continue
@@ -127,7 +133,7 @@ class ComplianceFitnessTest {
     fun `no raw C2S packet construction or direct network sends`() {
         val violations = mutableListOf<String>()
 
-        for (file in allKotlinFiles(SOURCE_ROOT)) {
+        for (file in allSourceFiles()) {
             file.readLines().forEachIndexed { index, line ->
                 if (isCommentLine(line)) return@forEachIndexed
                 for ((name, pattern) in FORBIDDEN_PACKET_PATTERNS) {

@@ -1,5 +1,7 @@
 package gg.orrery
 
+import gg.orrery.atlas.Atlas
+import gg.orrery.eclipse.Eclipse
 import gg.orrery.generated.Tokens
 import net.fabricmc.api.ClientModInitializer
 import net.fabricmc.api.EnvType
@@ -29,6 +31,11 @@ object OrreryMod : ClientModInitializer {
                 " · motion.base ${Tokens.Motion.base}ms"
         )
 
-        logger.info("[Orrery] subsystems registered (stubs) — Eclipse / Lumen / Atlas / Halo / Codex / Relay")
+        // Eclipse spine (Phase 1): register Atlas recognizers + Eclipse menu views so the
+        // interception mixin can recognize and swap the SkyBlock main menu at runtime (§6.3).
+        Atlas.registerDefaultRecognizers()
+        Eclipse.registerDefaults()
+
+        logger.info("[Orrery] subsystems registered — Eclipse spine live (Atlas recognizers + Eclipse views)")
     }
 }
