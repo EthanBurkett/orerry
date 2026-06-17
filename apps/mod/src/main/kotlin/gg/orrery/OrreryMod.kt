@@ -1,11 +1,13 @@
 package gg.orrery
 
 import gg.orrery.atlas.Atlas
+import gg.orrery.dev.DevPreview
 import gg.orrery.eclipse.Eclipse
 import gg.orrery.generated.Tokens
 import net.fabricmc.api.ClientModInitializer
 import net.fabricmc.api.EnvType
 import net.fabricmc.api.Environment
+import net.fabricmc.loader.api.FabricLoader
 import org.apache.logging.log4j.LogManager
 
 /**
@@ -37,5 +39,13 @@ object OrreryMod : ClientModInitializer {
         Eclipse.registerDefaults()
 
         logger.info("[Orrery] subsystems registered — Eclipse spine live (Atlas recognizers + Eclipse views)")
+
+        // Dev-only: offline menu preview harness. Never registered in a production build.
+        // Run `/orrery preview` in a singleplayer world to see the SkyBlock menu intercepted
+        // and re-rendered without a Mojang session / Hypixel (see DevPreview).
+        if (FabricLoader.getInstance().isDevelopmentEnvironment) {
+            DevPreview.register()
+            logger.info("[Orrery] dev preview enabled — run /orrery preview in a world")
+        }
     }
 }
