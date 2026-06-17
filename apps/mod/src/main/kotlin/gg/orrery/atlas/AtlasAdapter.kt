@@ -5,6 +5,7 @@ import net.minecraft.entity.player.PlayerInventory
 import net.minecraft.item.ItemStack
 import net.minecraft.nbt.NbtCompound
 import net.minecraft.nbt.NbtElement
+import net.minecraft.registry.Registries
 import net.minecraft.screen.ScreenHandler
 import net.minecraft.text.Text
 
@@ -87,7 +88,9 @@ object AtlasAdapter {
      * [ParsedMenu] with all § codes stripped and ExtraAttributes flattened.
      */
     fun parse(title: Text, handler: ScreenHandler): ParsedMenu {
-        val strippedTitle = stripCodes(title.getString())
+        // Strip § codes from the raw title, then strip any trailing click-hints
+        // (e.g. "SkyBlock Menu (Click)" → "SkyBlock Menu"). Punch-list item.
+        val strippedTitle = stripClickHints(stripCodes(title.getString()))
 
         // Container slots ONLY — exclude the player inventory (hotbar + main inv).
         // A SkyBlock menu IS the container's slots; the player's own items must
@@ -118,8 +121,13 @@ object AtlasAdapter {
     private fun parseItem(slotIndex: Int, stack: ItemStack): ParsedItem? {
         if (stack.isEmpty) return null
 
+        // Minecraft item registry id — e.g. "minecraft:gray_stained_glass_pane".
+        // Used by classifyEntry to identify filler panes without relying on name heuristics.
+        val itemId: String = Registries.ITEM.getId(stack.item).toString()
+
         // Display name — getName() returns CUSTOM_NAME if set, else the item's
         // built-in name. SkyBlock always uses CUSTOM_NAME for its items.
+        // rawName retains § color codes so deriveRarity can read the leading color.
         val rawName = stack.getName().getString()
         val name = stripCodes(rawName)
 
@@ -183,6 +191,8 @@ object AtlasAdapter {
             skyblockId = skyblockId,
             count = stack.count,
             extraAttributes = extraAttributes,
+            itemId = itemId,
+            rawName = rawName,
         )
     }
 }

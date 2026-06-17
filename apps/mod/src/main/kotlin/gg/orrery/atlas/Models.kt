@@ -20,6 +20,13 @@ package gg.orrery.atlas
  * @param skyblockId  ExtraAttributes "id" value if present.
  * @param count Stack count.
  * @param extraAttributes Shallow string view of ExtraAttributes scalar entries.
+ * @param itemId  The Minecraft item registry id, e.g. "minecraft:gray_stained_glass_pane".
+ *                Populated by [AtlasAdapter] via Registries.ITEM.getId(stack.item).toString().
+ *                Null when unavailable. Used by [classifyEntry] (e.g. pane → FILLER).
+ *                Core stays MC-agnostic: this is just a plain String.
+ * @param rawName The display name WITH § color codes intact (before stripping).
+ *                Populated by [AtlasAdapter] via stack.getName().getString() before stripping.
+ *                Used by [deriveRarity] to extract SkyBlock's name color → rarity fallback.
  */
 data class ParsedItem(
     val slot: Int,
@@ -29,6 +36,8 @@ data class ParsedItem(
     val skyblockId: String?,
     val count: Int,
     val extraAttributes: Map<String, String>,
+    val itemId: String? = null,
+    val rawName: String = name,
 )
 
 /**
