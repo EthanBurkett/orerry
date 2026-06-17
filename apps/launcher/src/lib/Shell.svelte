@@ -2,99 +2,85 @@
 <script lang="ts">
   import { createQuery } from '@tanstack/svelte-query';
   import { getAppVersion } from '$lib/tauri';
+  import WindowChrome from '$lib/components/WindowChrome.svelte';
   import Sidebar from '$lib/components/Sidebar.svelte';
+  import NewsRail from '$lib/components/NewsRail.svelte';
+  import StatusBar from '$lib/components/StatusBar.svelte';
+  import EmptyState from '$lib/components/EmptyState.svelte';
   import Home from '../routes/Home.svelte';
 
-  // Active page state — drives sidebar active indicator and route rendering.
-  let activePage = $state('home');
-
-  function navigate(page: string) {
-    activePage = page;
-  }
-
-  /*
-   * Version query: proves the svelte-query ↔ Tauri command pipeline.
-   * This component renders INSIDE <QueryClientProvider> (see App.svelte), so
-   * the QueryClient is available via context — createQuery must never be called
-   * in the same component that renders the provider, or context is missing and
-   * mount throws. The queryFn catch lets plain Vite dev (no Tauri) degrade to
-   * 'dev' instead of erroring.
-   */
+  // Rendered inside <QueryClientProvider> (App.svelte) — context is available here.
   const versionQuery = createQuery({
     queryKey: ['appVersion'],
     queryFn: () => getAppVersion().catch(() => 'dev'),
     staleTime: Infinity,
   });
+  const appVersion = $derived($versionQuery.data ?? '0.1.0');
+
+  let activePage = $state('home');
+  function navigate(page: string) {
+    activePage = page;
+  }
+  const routeTitle = $derived(
+    activePage.charAt(0).toUpperCase() + activePage.slice(1),
+  );
 </script>
 
-<div class="shell">
-  <Sidebar {activePage} onNavigate={navigate} />
+<div class="app">
+  <WindowChrome />
 
-  <div class="content">
-    {#if activePage === 'home'}
-      <Home
-        onLaunch={() => console.log('launch')}
-        onOpenSettings={() => navigate('settings')}
-        onNavigate={navigate}
-      />
-    {:else}
-      <!-- Placeholder for other routes — scaffolded in later tasks -->
-      <div class="placeholder">
-        <span class="placeholder-label">{activePage}</span>
-      </div>
-    {/if}
+  <div class="body">
+    <Sidebar {activePage} {appVersion} onNavigate={navigate} />
+
+    <main class="main">
+      {#if activePage === 'home'}
+        <Home onNavigate={navigate} />
+      {:else}
+        <div class="route-empty">
+          <EmptyState
+            title={routeTitle}
+            hint="This section arrives in a later phase."
+          />
+        </div>
+      {/if}
+    </main>
+
+    <NewsRail />
   </div>
 
-  <!-- Version watermark — bottom corner, very subtle -->
-  <div class="version-watermark" aria-hidden="true">
-    {#if $versionQuery.data}
-      v{$versionQuery.data}
-    {/if}
-  </div>
+  <StatusBar />
 </div>
 
 <style>
-  .shell {
+  .app {
     display: flex;
+    flex-direction: column;
     width: 100%;
     height: 100%;
     background: var(--color-void-base);
     overflow: hidden;
-    position: relative;
   }
-
-  .content {
+  .body {
     flex: 1;
     display: flex;
-    flex-direction: column;
+    min-height: 0;
+  }
+  .main {
+    flex: 1;
     min-width: 0;
+    display: flex;
     overflow: hidden;
   }
-
-  .placeholder {
+  .route-empty {
     flex: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    display: grid;
+    place-items: center;
   }
 
-  .placeholder-label {
-    font-family: var(--font-mono);
-    font-size: var(--text-small);
-    color: var(--color-text-low);
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-  }
-
-  .version-watermark {
-    position: fixed;
-    bottom: 8px;
-    right: 10px;
-    font-family: var(--font-mono);
-    font-size: var(--text-caption);
-    color: var(--color-text-low);
-    opacity: 0.5;
-    pointer-events: none;
-    z-index: 100;
+  /* Right rail collapses on narrow windows. */
+  @media (max-width: 880px) {
+    .body :global(aside[aria-label='Observatory news']) {
+      display: none;
+    }
   }
 </style>

@@ -18,6 +18,10 @@ export const color = {
   // Accents
   brass: { ember: "#B5731C", base: "#E3A23C", hi: "#F7C765" },
   cyan: { base: "#4FC9DB", hi: "#7FE0EE" },
+  // Ink — dark text/icons placed ON accent fills (never pure black).
+  // `on-brass` is the warm dark used for the primary button label in the §5.6
+  // style tile. Kept in its own group so it's never confused with text.* tokens.
+  ink: { "on-brass": "#2A1A06" },
   // Semantic
   semantic: {
     success: "#5FD08A",

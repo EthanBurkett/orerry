@@ -12,14 +12,15 @@
   "app": {
     "windows": [
       {
+        "label": "main",
         "title": "Orrery — Observatory",
-        "width": 900,
-        "height": 600,
-        "minWidth": 800,
+        "width": 1000,
+        "height": 640,
+        "minWidth": 860,
         "minHeight": 560,
         "resizable": true,
         "center": true,
-        "decorations": true,
+        "decorations": false,
         "transparent": false
       }
     ],
