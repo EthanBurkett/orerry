@@ -1,0 +1,24 @@
+{
+  "name": "@orrery/design-tokens",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Orrery's single source of truth for the visual identity (DESIGN_SPEC §5).",
+  "exports": {
+    ".": "./src/index.ts",
+    "./css": "./dist/tokens.css",
+    "./tokens.json": "./dist/tokens.json"
+  },
+  "scripts": {
+    "build": "tsx scripts/build.ts",
+    "tokens:gen": "tsx ../../tooling/scripts/gen-tokens-kotlin.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "node --import tsx --test"
+  },
+  "devDependencies": {
+    "@orrery/tsconfig": "workspace:*",
+    "@types/node": "^22.10.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.8.3"
+  }
+}

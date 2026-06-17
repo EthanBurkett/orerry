@@ -1,0 +1,36 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Turbo
+.turbo/
+
+# Build outputs
+dist/
+build/
+target/
+out/
+
+# Generated (codegen — reproducible, not committed)
+**/generated/
+
+# Tauri
+apps/launcher/src-tauri/target/
+
+# Gradle
+.gradle/
+apps/mod/build/
+apps/mod/.gradle/
+
+# Logs / env
+*.log
+.env
+.env.*
+!.env.example
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json

@@ -1,0 +1,11 @@
+[package]
+name = "meridian"
+version = "0.1.0"
+edition = "2021"
+description = "Orrery backend — accounts & identity service"
+
+[dependencies]
+shared.workspace = true
+axum.workspace = true
+serde.workspace = true
+tracing.workspace = true

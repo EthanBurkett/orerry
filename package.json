@@ -1,0 +1,24 @@
+{
+  "name": "orrery",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Orrery — a fully custom Hypixel SkyBlock client (mod + launcher + backend).",
+  "packageManager": "pnpm@11.5.1",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "dev": "turbo run dev",
+    "tokens:gen": "turbo run tokens:gen",
+    "typecheck": "turbo run typecheck"
+  },
+  "devDependencies": {
+    "turbo": "^2.5.5",
+    "tsx": "^4.19.2",
+    "typescript": "^5.8.3",
+    "@orrery/tsconfig": "workspace:*"
+  }
+}

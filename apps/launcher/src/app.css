@@ -1,0 +1,76 @@
+/* Tailwind v4 CSS-first config — no tailwind.config.ts file.
+   The @tailwindcss/vite plugin handles everything.
+   The @theme block from design-tokens registers all custom properties as
+   Tailwind utilities (bg-void-base, text-brass-hi, border-hairline-base, etc.). */
+@import "tailwindcss";
+@import "@orrery/design-tokens/css";
+
+/* ------------------------------------------------------------------ */
+/* Base resets and document defaults                                   */
+/* ------------------------------------------------------------------ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body,
+#app {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  background: var(--color-void-base);
+  color: var(--color-text-hi);
+  font-family: var(--font-body);
+  font-size: var(--text-body);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  /* Tauri windows: disable default OS text selection cursor behavior */
+  user-select: none;
+}
+
+/* Re-enable selection inside explicitly typed content */
+p,
+span[data-selectable],
+input,
+textarea {
+  user-select: text;
+}
+
+/* Scrollbar — matches the void palette */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-void-s1);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-hairline-bright);
+  border-radius: var(--radius-pill);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-low);
+}
+
+/* Focus visible — keyboard nav ring in brass */
+:focus-visible {
+  outline: 2px solid var(--color-brass-base);
+  outline-offset: 2px;
+}
+
+/* Remove focus ring from mouse clicks */
+:focus:not(:focus-visible) {
+  outline: none;
+}

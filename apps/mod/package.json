@@ -1,0 +1,12 @@
+{
+  "name": "@orrery/mod",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Orrery Fabric mod — Hypixel SkyBlock custom client (MC 1.21.11)",
+  "scripts": {
+    "build": "gradlew.bat build",
+    "test": "gradlew.bat test",
+    "lint": "gradlew.bat check",
+    "clean": "gradlew.bat clean"
+  }
+}

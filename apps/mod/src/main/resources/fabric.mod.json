@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "id": "orrery",
+  "version": "${version}",
+  "name": "Orrery",
+  "description": "A fully custom Hypixel SkyBlock client — brass instrument in the void.",
+  "authors": [
+    "Ethan"
+  ],
+  "contact": {
+    "homepage": "https://orrery.gg"
+  },
+  "license": "UNLICENSED",
+  "icon": "assets/orrery/icon.png",
+  "environment": "client",
+  "entrypoints": {
+    "client": [
+      {
+        "adapter": "kotlin",
+        "value": "gg.orrery.OrreryMod"
+      }
+    ]
+  },
+  "mixins": [
+    "orrery.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=${loader_version}",
+    "minecraft": "~${minecraft_version}",
+    "java": ">=21",
+    "fabric-api": "*",
+    "fabric-language-kotlin": ">=${fabric_language_kotlin_version}"
+  }
+}

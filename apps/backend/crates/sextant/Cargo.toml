@@ -1,0 +1,11 @@
+[package]
+name = "sextant"
+version = "0.1.0"
+edition = "2021"
+description = "Orrery backend — Hypixel API proxy + cache service"
+
+[dependencies]
+shared.workspace = true
+axum.workspace = true
+serde.workspace = true
+tracing.workspace = true

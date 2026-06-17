@@ -1,0 +1,11 @@
+[package]
+name = "ephemeris"
+version = "0.1.0"
+edition = "2021"
+description = "Orrery backend — cloud config sync service"
+
+[dependencies]
+shared.workspace = true
+axum.workspace = true
+serde.workspace = true
+tracing.workspace = true

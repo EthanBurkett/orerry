@@ -1,0 +1,30 @@
+{
+  "name": "@orrery/launcher",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Observatory — the Orrery launcher (Tauri 2 + Svelte 5).",
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite",
+    "typecheck": "svelte-check --tsconfig ./tsconfig.json",
+    "lint": "svelte-check --tsconfig ./tsconfig.json",
+    "tauri": "tauri"
+  },
+  "dependencies": {
+    "@orrery/design-tokens": "workspace:*",
+    "@tauri-apps/api": "^2.5.0",
+    "@tanstack/svelte-query": "^5.80.7",
+    "svelte": "^5.33.14"
+  },
+  "devDependencies": {
+    "@orrery/tsconfig": "workspace:*",
+    "@sveltejs/vite-plugin-svelte": "^5.0.3",
+    "@tauri-apps/cli": "^2.5.0",
+    "@tailwindcss/vite": "^4.1.10",
+    "svelte-check": "^4.2.1",
+    "tailwindcss": "^4.1.10",
+    "typescript": "^5.8.3",
+    "vite": "^6.3.5"
+  }
+}
