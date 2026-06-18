@@ -139,9 +139,15 @@ class SkyBlockMenuView(
 
     override fun init() {
         super.init()
-        // Generous, fixed panel sized to the screen; body scrolls if entries overflow.
-        panelW = (width * 0.62).toInt().coerceIn(360, 560)
-        panelH = (height * 0.80).toInt().coerceIn(280, 520)
+        // GUI-scale aware: a FIXED design size in GUI-scaled units (like every vanilla screen),
+        // centered, clamped to the screen on small windows. Because width/height are already the
+        // GUI-scaled dimensions, a fixed scaled size means the GUI Scale option zooms the whole
+        // menu uniformly and the panel:text:card proportions stay constant at any resolution.
+        // Body scrolls when entries overflow. (Was % of screen → proportions drifted with window
+        // size and it didn't read as scale-aware.)
+        val margin = 16
+        panelW = DESIGN_PANEL_W.coerceAtMost(width - margin * 2)
+        panelH = DESIGN_PANEL_H.coerceAtMost(height - margin * 2)
         panelX = (width - panelW) / 2
         panelY = (height - panelH) / 2
         scrollOffset = 0
@@ -401,6 +407,15 @@ class SkyBlockMenuView(
     }
 
     private companion object {
+        /**
+         * Fixed design size of the menu panel, in GUI-scaled units. Kept constant (not a % of the
+         * window) so the menu is GUI-scale aware: the GUI Scale option zooms it uniformly and the
+         * proportions never drift with window size/resolution. Clamped to the screen on small
+         * windows; the body scrolls past [DESIGN_PANEL_H]. FLAG(screenshot): tune to taste.
+         */
+        private const val DESIGN_PANEL_W = 480
+        private const val DESIGN_PANEL_H = 340
+
         /**
          * Fallback rebuild cadence (ms) for live slot updates (L2 #5). Most rebuilds are triggered
          * by the slot-content fingerprint changing; this interval is a safety net for changes the
