@@ -79,6 +79,9 @@ object LumenWidgets {
     // not hardcoded pixel rows.
     private const val CARD_TEXT_INSET = 6   // top/bottom inset for the two-line title+subtitle layout
 
+    // -- pagination controls height (footer) --
+    private const val PAGINATION_BTN_H = 14
+
     // ── text measurement with an Orrery font ─────────────────────────────────
 
     /** Builds a [Text] styled with the given Orrery [font] (so width + draw use the same glyphs). */
@@ -122,13 +125,27 @@ object LumenWidgets {
     // ── header ───────────────────────────────────────────────────────────────
 
     /**
-     * Header row: menu [title] in the DISPLAY font (text-hi, left), an optional [purse] value on
-     * the right (mono, brass-hi — a "key numeral"), and a close × (text-low, cyan on hover).
-     *
-     * Returns the screen-space rectangle of the close glyph so the view can hit-test it:
-     * `intArrayOf(x, y, w, h)`.
+     * Result bundle for [headerWithBack]: the close-glyph rect and the back-arrow rect.
      */
-    fun header(
+    data class HeaderResult(
+        /** Screen-space rect [x,y,w,h] of the close × glyph (for hit-testing in the view). */
+        val closeRect: IntArray,
+        /** Screen-space rect [x,y,w,h] of the back ‹ glyph, or null when no BACK entry. */
+        val backRect: IntArray?,
+    )
+
+    /**
+     * Header row with optional back-arrow control:
+     * - If [hasBack], draws a "‹" back-arrow glyph to the LEFT of the title (text-low, cyan on
+     *   hover). The view hit-tests [HeaderResult.backRect] and routes the click through
+     *   Interaction.clickSlot on the BACK entry's backing slot.
+     * - Menu [title] in the DISPLAY font (text-hi), shifted right if the back arrow is shown.
+     * - An optional [purse] value on the right (mono, brass-hi — a "key numeral").
+     * - A close × (text-low, cyan on hover) on the far right.
+     *
+     * Returns [HeaderResult] so the view can hit-test both glyphs.
+     */
+    fun headerWithBack(
         ctx: DrawContext,
         tr: TextRenderer,
         x: Int,
@@ -136,13 +153,11 @@ object LumenWidgets {
         w: Int,
         title: String,
         purse: String?,
+        hasBack: Boolean,
         mouseX: Int,
         mouseY: Int,
-    ): IntArray {
-        val titleY = y + (HEADER_HEIGHT - tr.fontHeight) / 2
-        LumenDraw.text(ctx, tr, title, x, titleY, Tokens.Color.textHi, font = LumenFonts.DISPLAY)
-
-        // close × on the far right
+    ): HeaderResult {
+        // close ×
         val closeGlyph = "×"
         val closeW = measure(tr, closeGlyph, LumenFonts.DISPLAY) + 6
         val closeH = HEADER_HEIGHT
@@ -157,7 +172,29 @@ object LumenWidgets {
             closeColor, font = LumenFonts.DISPLAY,
         )
 
+        // back-arrow ‹ (left of title, only when BACK entry exists)
+        var backResult: IntArray? = null
+        var titleX = x
+        if (hasBack) {
+            val backGlyph = "‹"
+            val backW = measure(tr, backGlyph, LumenFonts.DISPLAY) + 8
+            val backH = HEADER_HEIGHT
+            val backX = x
+            val backY = y
+            val backHover = mouseX >= backX && mouseX < backX + backW &&
+                mouseY >= backY && mouseY < backY + backH
+            val backColor = if (backHover) Tokens.Color.cyanBase else Tokens.Color.textLow
+            LumenDraw.text(
+                ctx, tr, backGlyph,
+                backX + 2, y + (HEADER_HEIGHT - tr.fontHeight) / 2,
+                backColor, font = LumenFonts.DISPLAY,
+            )
+            backResult = intArrayOf(backX, backY, backW, backH)
+            titleX = backX + backW + 2
+        }
+
         // purse value (mono, brass-hi) left of the close glyph, if derivable
+        var titleMaxX = closeX - 8
         if (purse != null) {
             val pw = measure(tr, purse, LumenFonts.MONO)
             LumenDraw.text(
@@ -165,9 +202,38 @@ object LumenWidgets {
                 closeX - 10 - pw, y + (HEADER_HEIGHT - tr.fontHeight) / 2,
                 Tokens.Color.brassHi, font = LumenFonts.MONO,
             )
+            titleMaxX = closeX - 10 - pw - 6
         }
 
-        return intArrayOf(closeX, closeY, closeW, closeH)
+        // title (DISPLAY, text-hi) — clipped to available space
+        val titleMaxW = titleMaxX - titleX
+        textClipped(
+            ctx, tr, title, titleX, y + (HEADER_HEIGHT - tr.fontHeight) / 2,
+            titleMaxW, Tokens.Color.textHi, LumenFonts.DISPLAY,
+        )
+
+        return HeaderResult(
+            closeRect = intArrayOf(closeX, closeY, closeW, closeH),
+            backRect = backResult,
+        )
+    }
+
+    /**
+     * Legacy [header] — kept for call-compatibility. Delegates to [headerWithBack] with no back
+     * arrow. Returns only the close rect (as before).
+     */
+    fun header(
+        ctx: DrawContext,
+        tr: TextRenderer,
+        x: Int,
+        y: Int,
+        w: Int,
+        title: String,
+        purse: String?,
+        mouseX: Int,
+        mouseY: Int,
+    ): IntArray {
+        return headerWithBack(ctx, tr, x, y, w, title, purse, hasBack = false, mouseX, mouseY).closeRect
     }
 
     // ── search field ───────────────────────────────────────────────────────────
@@ -219,10 +285,15 @@ object LumenWidgets {
     // ── entry card ───────────────────────────────────────────────────────────
 
     /**
-     * One labelled entry card: a surface tile (surface.3 + hairline-bright when [hovered], else
-     * surface.2 + hairline) holding an icon tile rendering the real [icon] stack, the entry
-     * [MenuEntry.title] (DISPLAY, text-hi), [MenuEntry.subtitle] (BODY, text-mid), a chevron ›
-     * (text-low) on the right, and a subtle rarity tick (rarity color) on the left edge.
+     * One labelled entry card: a surface tile (surface.3 + hairline-bright when [hovered] or
+     * [selected], brass left-accent when [selected]) holding an icon tile rendering the real [icon]
+     * stack, the entry [MenuEntry.title] (DISPLAY, text-hi), [MenuEntry.subtitle] (BODY, text-mid),
+     * a chevron › (text-low) on the right, and a subtle rarity tick (rarity color) on the left edge.
+     *
+     * Keyboard-[selected] state renders with a STRONG highlight: brass left-accent + brighter surface
+     * + hairline-bright border, distinct from mouse hover. Mouse [hovered] renders with a milder brass
+     * accent (same size, different color: brassBase vs. brassHi). Both can coexist but selected wins
+     * visually on the surface color.
      *
      * Pure draw; the view owns hit-testing + routing.
      */
@@ -235,13 +306,20 @@ object LumenWidgets {
         entry: MenuEntry,
         icon: ItemStack?,
         hovered: Boolean,
+        selected: Boolean = false,
     ) {
-        // Card surface. Hover (L2 #6): brighter surface (surface.3) + bright hairline border.
-        LumenDraw.panel(
-            ctx, x, y, w, CARD_HEIGHT,
-            fill = if (hovered) Tokens.Color.voidS3 else Tokens.Color.voidS2,
-            border = if (hovered) Tokens.Color.hairlineBright else Tokens.Color.hairlineBase,
-        )
+        // Card surface. Selected > hovered > base for the surface and border colors.
+        val cardFill = when {
+            selected -> Tokens.Color.voidS3
+            hovered -> Tokens.Color.voidS3
+            else -> Tokens.Color.voidS2
+        }
+        val cardBorder = when {
+            selected -> Tokens.Color.hairlineBright
+            hovered -> Tokens.Color.hairlineBright
+            else -> Tokens.Color.hairlineBase
+        }
+        LumenDraw.panel(ctx, x, y, w, CARD_HEIGHT, fill = cardFill, border = cardBorder)
 
         val rarityColor = rarityColor(entry.rarity)
 
@@ -250,10 +328,11 @@ object LumenWidgets {
             LumenDraw.fillRect(ctx, x + 1, y + 4, 2, CARD_HEIGHT - 8, rarityColor)
         }
 
-        // Hover accent (L2 #6): a brass left-accent bar so keyboard/controller nav reads clearly.
-        // Drawn just inside the rarity tick so both remain visible.
-        if (hovered) {
-            LumenDraw.fillRect(ctx, x + 3, y + 4, 2, CARD_HEIGHT - 8, Tokens.Color.brassBase)
+        // Keyboard-selected accent: a STRONG brass-hi left bar (visually distinct from hover).
+        // Mouse hover: a milder brassBase bar. Both are drawn just inside the rarity tick.
+        when {
+            selected -> LumenDraw.fillRect(ctx, x + 3, y + 4, 2, CARD_HEIGHT - 8, Tokens.Color.brassHi)
+            hovered  -> LumenDraw.fillRect(ctx, x + 3, y + 4, 2, CARD_HEIGHT - 8, Tokens.Color.brassBase)
         }
 
         // ── icon tile ──────────────────────────────────────────────────────────────
@@ -293,7 +372,7 @@ object LumenWidgets {
         val chevX = x + w - chevW - 8
         LumenDraw.text(
             ctx, tr, chevron, chevX, y + (CARD_HEIGHT - tr.fontHeight) / 2,
-            if (hovered) Tokens.Color.textMid else Tokens.Color.textLow, font = LumenFonts.DISPLAY,
+            if (hovered || selected) Tokens.Color.textMid else Tokens.Color.textLow, font = LumenFonts.DISPLAY,
         )
 
         // ── text column between icon tile and chevron ────────────────────────────────
@@ -332,10 +411,109 @@ object LumenWidgets {
     // ── footer ───────────────────────────────────────────────────────────────
 
     /**
-     * Footer: a hairline divider then lightweight content. Draws the [left] string (BODY,
-     * text-low — e.g. an entry count) on the left, and an optional [right] value (MONO,
-     * brass-hi — a key numeral) on the right. Degrades gracefully: pass null for [right]
-     * when no stat is derivable (§2 — never fabricate).
+     * Result bundle for [footerWithPagination]: the prev and next button rects (for hit-testing).
+     */
+    data class FooterResult(
+        /** Screen-space rect [x,y,w,h] of the "‹ Prev" button, or null if no prev entry. */
+        val prevRect: IntArray?,
+        /** Screen-space rect [x,y,w,h] of the "Next ›" button, or null if no next entry. */
+        val nextRect: IntArray?,
+    )
+
+    /**
+     * Footer with optional pagination controls.
+     *
+     * Draws:
+     * - Hairline divider
+     * - [left] string (BODY, text-low) — e.g. entry count
+     * - If pagination entries exist: "‹ Prev" and/or "Next ›" buttons (BODY, text-low / cyan on
+     *   hover) centered in the footer. An optional page indicator (e.g. "Page 2/5") appears
+     *   between the prev/next buttons when genuinely derivable.
+     *
+     * Returns [FooterResult] with the hit-test rects for the view's mouseClicked handler.
+     * Degrades gracefully: if [prevEntry]/[nextEntry] are null, no controls are shown.
+     */
+    fun footerWithPagination(
+        ctx: DrawContext,
+        tr: TextRenderer,
+        x: Int,
+        y: Int,
+        w: Int,
+        left: String,
+        prevEntry: MenuEntry?,
+        nextEntry: MenuEntry?,
+        pageIndicator: String?,
+        mouseX: Int,
+        mouseY: Int,
+    ): FooterResult {
+        LumenDraw.fillRect(ctx, x, y, w, 1, Tokens.Color.hairlineBase)
+        val ty = y + 6
+
+        // left label (entry count etc.)
+        LumenDraw.text(ctx, tr, left, x, ty, Tokens.Color.textLow, font = LumenFonts.BODY)
+
+        var prevRect: IntArray? = null
+        var nextRect: IntArray? = null
+
+        val hasPrev = prevEntry != null
+        val hasNext = nextEntry != null
+
+        if (hasPrev || hasNext) {
+            // Lay out pagination controls on the right side of the footer.
+            // Order: [‹ Prev]  [Page X/Y]  [Next ›]
+            val prevLabel = "‹ Prev"
+            val nextLabel = "Next ›"
+
+            var cx = x + w  // build from right to left
+
+            // Next › button
+            if (hasNext) {
+                val nw = measure(tr, nextLabel, LumenFonts.BODY) + 8
+                val nx = cx - nw
+                val nh = PAGINATION_BTN_H
+                val ny = ty - (PAGINATION_BTN_H - tr.fontHeight) / 2
+                val nextHover = mouseX >= nx && mouseX < nx + nw &&
+                    mouseY >= ny && mouseY < ny + nh
+                LumenDraw.text(
+                    ctx, tr, nextLabel, nx + 4, ty,
+                    if (nextHover) Tokens.Color.cyanBase else Tokens.Color.textLow,
+                    font = LumenFonts.BODY,
+                )
+                nextRect = intArrayOf(nx, ny, nw, nh)
+                cx = nx - 4
+            }
+
+            // Page indicator (only if genuinely derivable; §2 — never fabricate)
+            if (pageIndicator != null) {
+                val pw = measure(tr, pageIndicator, LumenFonts.BODY)
+                cx -= pw
+                LumenDraw.text(ctx, tr, pageIndicator, cx, ty, Tokens.Color.textMid, font = LumenFonts.BODY)
+                cx -= 4
+            }
+
+            // ‹ Prev button
+            if (hasPrev) {
+                val pw = measure(tr, prevLabel, LumenFonts.BODY) + 8
+                val px = cx - pw
+                val ph = PAGINATION_BTN_H
+                val py = ty - (PAGINATION_BTN_H - tr.fontHeight) / 2
+                val prevHover = mouseX >= px && mouseX < px + pw &&
+                    mouseY >= py && mouseY < py + ph
+                LumenDraw.text(
+                    ctx, tr, prevLabel, px + 4, ty,
+                    if (prevHover) Tokens.Color.cyanBase else Tokens.Color.textLow,
+                    font = LumenFonts.BODY,
+                )
+                prevRect = intArrayOf(px, py, pw, ph)
+            }
+        }
+
+        return FooterResult(prevRect = prevRect, nextRect = nextRect)
+    }
+
+    /**
+     * Legacy [footer] — kept for call-compatibility. Delegates to a direct draw without
+     * pagination controls, returning nothing.
      */
     fun footer(
         ctx: DrawContext,
@@ -353,6 +531,64 @@ object LumenWidgets {
             val rw = measure(tr, right, LumenFonts.MONO)
             LumenDraw.text(ctx, tr, right, x + w - rw, ty, Tokens.Color.brassHi, font = LumenFonts.MONO)
         }
+    }
+
+    // ── loading state ─────────────────────────────────────────────────────────
+
+    /**
+     * Animated loading state for the body area. Shown while SkyBlock loading panes are still
+     * resolving (within the grace window).
+     *
+     * Draws a small animated orbital indicator (rotating ring of ticks, primitives only — no
+     * external assets) and "Loading…" in BODY font (text-low), centered in the body area.
+     * The animation uses [elapsedMs] to drive the frame, never a timer/coroutine (§11 compliant).
+     *
+     * The orbital tick is a concentric arrangement of 8 small filled squares arranged in a ring,
+     * with the current "lit" pip advancing at ~8 fps. Purely from DrawContext.fill primitives and
+     * token colors — no textures, no raw hex.
+     *
+     * @param elapsedMs milliseconds since the screen opened (drives the animation frame).
+     */
+    fun loadingState(
+        ctx: DrawContext,
+        tr: TextRenderer,
+        x: Int,
+        y: Int,
+        w: Int,
+        h: Int,
+        elapsedMs: Float,
+    ) {
+        val cx = x + w / 2
+        val cy = y + h / 2 - tr.fontHeight / 2 - 6  // slightly above center to leave room for text
+
+        // Orbital ring: 8 pips arranged in a 12px radius circle.
+        // Each pip is a 2x2 filled square. The "lit" pip cycles every 125ms (8 fps).
+        val pipCount = 8
+        val radius = 10
+        val frame = ((elapsedMs / 125f) % pipCount).toInt()
+
+        for (i in 0 until pipCount) {
+            val angle = (i.toDouble() * 2.0 * Math.PI / pipCount) - Math.PI / 2.0  // start at top
+            val px = (cx + radius * Math.cos(angle)).toInt() - 1
+            val py = (cy + radius * Math.sin(angle)).toInt() - 1
+
+            // Lit pip: brassHi; trailing pip: brassBase; rest: hairlineBright
+            val pipColor = when {
+                i == frame -> Tokens.Color.brassHi
+                i == (frame + pipCount - 1) % pipCount -> Tokens.Color.brassBase
+                else -> Tokens.Color.hairlineBright
+            }
+            LumenDraw.fillRect(ctx, px, py, 2, 2, pipColor)
+        }
+
+        // "Loading…" text below the orbital ring
+        val label = "Loading…"
+        val lw = measure(tr, label, LumenFonts.BODY)
+        LumenDraw.text(
+            ctx, tr, label,
+            cx - lw / 2, cy + radius + 4,
+            Tokens.Color.textLow, font = LumenFonts.BODY,
+        )
     }
 
     /**
