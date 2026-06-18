@@ -72,10 +72,46 @@ class SkyBlockMenuView(
     title: Text,
 ) : HandledScreen<GenericContainerScreenHandler>(handler, playerInventory, title) {
 
-    // -- parsed entries (from the live handler, once at construction) --
-    private val entries: List<MenuEntry> = run {
-        val parsed = AtlasAdapter.parse(title, handler)
-        parseEntries(parsed)
+    // ── live entries (L2 #5) ────────────────────────────────────────────────────
+    // SkyBlock mutates menu contents after open (loading panes → real items). We therefore
+    // re-read entries from the LIVE handler rather than freezing them at construction. To avoid
+    // re-parsing every frame we rebuild only when the container's slot contents actually change
+    // (detected via a cheap fingerprint) or after a short fallback interval.
+    private var entries: List<MenuEntry> = emptyList()
+    private var lastSlotFingerprint: Int = Int.MIN_VALUE
+    private var lastRebuildMs: Long = 0L
+
+    /**
+     * The handler slots that back the menu (the container, never the player inventory) — in the
+     * SAME order [AtlasAdapter.parse] enumerates them, so position i here == MenuEntry.backingSlot.
+     * This is the single source of truth for resolving an entry's icon + click slot, which keeps
+     * the icon lookup and the backing-slot round-trip aligned even when the container slots are not
+     * a contiguous 0-based prefix of handler.slots.
+     */
+    private fun containerSlots() = handler.slots.filter { it.inventory !is PlayerInventory }
+
+    /**
+     * Cheap content fingerprint of the container slots: folds each stack's item + count so the view
+     * rebuilds when loading panes resolve into real items (or counts change), but not every frame.
+     */
+    private fun slotFingerprint(): Int {
+        var h = 1
+        for (slot in containerSlots()) {
+            val s = slot.stack
+            h = 31 * h + if (s.isEmpty) 0 else (System.identityHashCode(s.item) * 31 + s.count)
+        }
+        return h
+    }
+
+    /** Rebuilds [entries] from the live handler when slot contents changed or the interval elapsed. */
+    private fun rebuildEntriesIfStale() {
+        val now = System.currentTimeMillis()
+        val fp = slotFingerprint()
+        if (fp != lastSlotFingerprint || now - lastRebuildMs >= REBUILD_INTERVAL_MS) {
+            entries = parseEntries(AtlasAdapter.parse(title, handler))
+            lastSlotFingerprint = fp
+            lastRebuildMs = now
+        }
     }
 
     // -- search state (display-only filtering) --
@@ -150,6 +186,9 @@ class SkyBlockMenuView(
     // ── render ─────────────────────────────────────────────────────────────────
 
     override fun render(context: DrawContext, mouseX: Int, mouseY: Int, delta: Float) {
+        // L2 #5: refresh entries from the live handler (loading panes → real items) before drawing.
+        rebuildEntriesIfStale()
+
         renderBackground(context, mouseX, mouseY, delta)
 
         // scrim + surface.1 panel + hairline border
@@ -233,7 +272,7 @@ class SkyBlockMenuView(
         if (index != null) {
             val entry = visibleEntries.getOrNull(index)
             if (entry != null) {
-                val slot = handler.slots.getOrNull(entry.backingSlot)
+                val slot = slotFor(entry)
                 if (slot != null) {
                     val button = click.button()                 // 0 = left, 1 = right
                     val shift = MinecraftClient.getInstance().isShiftPressed
@@ -304,9 +343,19 @@ class SkyBlockMenuView(
 
     // ── data helpers ─────────────────────────────────────────────────────────────
 
-    /** The live backing [ItemStack] for an entry, fetched from the handler's slot list. */
+    /**
+     * The live backing [ItemStack] for an entry. [MenuEntry.backingSlot] is the entry's position in
+     * the parse-order container-slot list (NOT a raw index into handler.slots), so we resolve it
+     * against [containerSlots] — the same enumeration the parser used. Resolving against the raw
+     * handler.slots list was the latent root cause of empty/wrong icons on menus where the
+     * container slots are not a contiguous 0-based prefix of handler.slots.
+     */
     private fun iconFor(entry: MenuEntry): ItemStack? =
-        handler.slots.getOrNull(entry.backingSlot)?.stack
+        containerSlots().getOrNull(entry.backingSlot)?.stack
+
+    /** The live backing [net.minecraft.screen.slot.Slot] for an entry (for click routing). */
+    private fun slotFor(entry: MenuEntry) =
+        containerSlots().getOrNull(entry.backingSlot)
 
     /**
      * Derives a purse / coins value to show in the header, ONLY if one is genuinely present in
@@ -352,6 +401,14 @@ class SkyBlockMenuView(
     }
 
     private companion object {
+        /**
+         * Fallback rebuild cadence (ms) for live slot updates (L2 #5). Most rebuilds are triggered
+         * by the slot-content fingerprint changing; this interval is a safety net for changes the
+         * fingerprint can't see (e.g. same item identity, mutated NBT/lore). Cheap: a parse is
+         * O(slots). FLAG: lower if live updates feel laggy, raise if profiling shows cost.
+         */
+        private const val REBUILD_INTERVAL_MS = 250L
+
         /** Faint void scrim over the whole screen behind the panel (token void at low alpha). */
         private val OVERLAY_SCRIM = (Tokens.Color.voidBase and 0x00FFFFFF) or (0xC0 shl 24)
 

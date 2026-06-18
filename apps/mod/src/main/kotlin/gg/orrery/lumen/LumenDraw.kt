@@ -3,6 +3,7 @@ package gg.orrery.lumen
 import gg.orrery.generated.Tokens
 import net.minecraft.client.font.TextRenderer
 import net.minecraft.client.gui.DrawContext
+import net.minecraft.item.ItemStack
 import net.minecraft.text.Style
 import net.minecraft.text.StyleSpriteSource
 import net.minecraft.text.Text
@@ -98,4 +99,69 @@ object LumenDraw {
             .setStyle(Style.EMPTY.withFont(StyleSpriteSource.Font(font)))
         ctx.drawText(textRenderer, styled, x, y, argb, shadow)
     }
+
+    /**
+     * Draws an item icon scaled up about its center so a native-16px item fills a larger tile and
+     * reads clearly (L2 #1). Items render through the GUI render-state batch, which captures the
+     * current 2D matrix transform at submit time, so we push a scale-about-center transform, submit
+     * the item + its count/durability overlay, then pop.
+     *
+     * @param ctx    current [DrawContext].
+     * @param tr     [TextRenderer] for the stack overlay (count / durability).
+     * @param stack  the item to draw (no-op when empty).
+     * @param x      left edge of the *unscaled* 16px item box, in screen px.
+     * @param y      top edge of the *unscaled* 16px item box, in screen px.
+     * @param scale  uniform scale factor about the item's center (e.g. 1.4).
+     *
+     * Yarn 1.21.11: [DrawContext.getMatrices] = method_51448 → [org.joml.Matrix3x2fStack]
+     * (pushMatrix / translate / scale / popMatrix); [DrawContext.drawItem] = method_51427.
+     */
+    fun itemScaled(
+        ctx: DrawContext,
+        tr: TextRenderer,
+        stack: ItemStack,
+        x: Int,
+        y: Int,
+        scale: Float,
+    ) {
+        if (stack.isEmpty) return
+        val cx = x + ITEM_PX / 2f
+        val cy = y + ITEM_PX / 2f
+        val matrices = ctx.matrices
+        matrices.pushMatrix()
+        // scale about the item's center so it grows in place rather than off toward the origin
+        matrices.translate(cx, cy)
+        matrices.scale(scale)
+        matrices.translate(-cx, -cy)
+        ctx.drawItem(stack, x, y)
+        ctx.drawStackOverlay(tr, stack, x, y)
+        matrices.popMatrix()
+    }
+
+    /**
+     * Linear blend of two ARGB colors by [t] in 0..1 (0 → [a], 1 → [b]), per-channel including
+     * alpha. Used to derive subtle tinted surfaces/borders from a base token + a rarity token
+     * (a "color-mix" over Tokens — the result is still a function of tokens only, no new brand
+     * color is introduced).
+     */
+    fun mix(a: Int, b: Int, t: Float): Int {
+        val f = t.coerceIn(0f, 1f)
+        val inv = 1f - f
+        val aa = (a ushr 24) and 0xFF
+        val ar = (a ushr 16) and 0xFF
+        val ag = (a ushr 8) and 0xFF
+        val ab = a and 0xFF
+        val ba = (b ushr 24) and 0xFF
+        val br = (b ushr 16) and 0xFF
+        val bg = (b ushr 8) and 0xFF
+        val bb = b and 0xFF
+        val ra = (aa * inv + ba * f).toInt() and 0xFF
+        val rr = (ar * inv + br * f).toInt() and 0xFF
+        val rg = (ag * inv + bg * f).toInt() and 0xFF
+        val rb = (ab * inv + bb * f).toInt() and 0xFF
+        return (ra shl 24) or (rr shl 16) or (rg shl 8) or rb
+    }
+
+    /** Native item icon edge length in GUI px (vanilla draws items at 16px). */
+    const val ITEM_PX = 16
 }

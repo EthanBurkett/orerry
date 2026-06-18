@@ -4,9 +4,17 @@
       "type": "ttf",
       "file": "orrery:inter.ttf",
       "shift": [0.0, 0.0],
-      "size": 11.0,
+      "size": 8.0,
       "oversample": 8.0,
       "skip": ""
+    },
+    {
+      "type": "reference",
+      "id": "minecraft:include/default"
+    },
+    {
+      "type": "reference",
+      "id": "minecraft:include/unifont"
     }
   ]
 }

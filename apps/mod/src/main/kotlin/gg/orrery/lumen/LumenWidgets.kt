@@ -46,11 +46,38 @@ import net.minecraft.util.Identifier
 object LumenWidgets {
 
     // -- layout constants (px). Instrument-precise rhythm (DESIGN.md spacing: 4/8/12/16…). --
+    // FLAG(screenshot): CARD_HEIGHT/ICON_TILE/SEARCH_HEIGHT/HEADER_HEIGHT are tuned against the
+    // smaller font sizes (display ~9.5px / body ~8px); verify on a real screenshot pass and nudge
+    // here if titles/subtitles crowd. All single-line edits.
     const val CARD_HEIGHT = 34
     const val CARD_GAP = 6
     const val ICON_TILE = 28          // surface.2 icon tile edge inside a card
     const val SEARCH_HEIGHT = 20
     const val HEADER_HEIGHT = 26
+
+    // -- icon rendering (L2 #1) --
+    /**
+     * Scale-up factor for the native-16px item inside the [ICON_TILE]. ~1.4x makes a 16px item
+     * read at ~22px so it fills the 28px tile without touching the hairline. FLAG(screenshot):
+     * tune if icons look cramped or overflow the tile.
+     */
+    const val ICON_SCALE = 1.4f
+
+    // -- rarity tint on the icon tile (L2 #4) --
+    /**
+     * Blend weight of the rarity color mixed into the icon-tile FILL (over surface.2). Kept low so
+     * the tint reads as a faint wash, not a colored block (§5 restraint). FLAG(screenshot): tune.
+     */
+    const val RARITY_TILE_TINT = 0.12f
+
+    /** Blend weight of the rarity color mixed into the icon-tile BORDER (over hairline). */
+    const val RARITY_BORDER_TINT = 0.45f
+
+    // -- card text metrics, proportional to TextRenderer.fontHeight (L2 #2) --
+    // Titles/subtitles are positioned from the live font height so they always fit the card and
+    // never clip when the font size is tuned in the *.json providers. These are ratios/offsets,
+    // not hardcoded pixel rows.
+    private const val CARD_TEXT_INSET = 6   // top/bottom inset for the two-line title+subtitle layout
 
     // ── text measurement with an Orrery font ─────────────────────────────────
 
@@ -209,39 +236,68 @@ object LumenWidgets {
         icon: ItemStack?,
         hovered: Boolean,
     ) {
+        // Card surface. Hover (L2 #6): brighter surface (surface.3) + bright hairline border.
         LumenDraw.panel(
             ctx, x, y, w, CARD_HEIGHT,
             fill = if (hovered) Tokens.Color.voidS3 else Tokens.Color.voidS2,
             border = if (hovered) Tokens.Color.hairlineBright else Tokens.Color.hairlineBase,
         )
 
-        // rarity tick — a thin vertical mark in the rarity color (game-data; allowed).
         val rarityColor = rarityColor(entry.rarity)
+
+        // rarity tick — a thin vertical mark in the rarity color (game-data; allowed).
         if (rarityColor != null) {
             LumenDraw.fillRect(ctx, x + 1, y + 4, 2, CARD_HEIGHT - 8, rarityColor)
         }
 
-        // icon tile (surface.2 inset + hairline) with the real item centered (native 16px).
-        val tileX = x + 5
-        val tileY = y + (CARD_HEIGHT - ICON_TILE) / 2
-        LumenDraw.panel(ctx, tileX, tileY, ICON_TILE, ICON_TILE, Tokens.Color.voidS2, Tokens.Color.hairlineBase)
-        if (icon != null && !icon.isEmpty) {
-            val ix = tileX + (ICON_TILE - 16) / 2
-            val iy = tileY + (ICON_TILE - 16) / 2
-            ctx.drawItem(icon, ix, iy)
-            ctx.drawStackOverlay(tr, icon, ix, iy)
+        // Hover accent (L2 #6): a brass left-accent bar so keyboard/controller nav reads clearly.
+        // Drawn just inside the rarity tick so both remain visible.
+        if (hovered) {
+            LumenDraw.fillRect(ctx, x + 3, y + 4, 2, CARD_HEIGHT - 8, Tokens.Color.brassBase)
         }
 
-        // chevron on the right
-        val chevron = "›" // ›
+        // ── icon tile ──────────────────────────────────────────────────────────────
+        val tileX = x + 6
+        val tileY = y + (CARD_HEIGHT - ICON_TILE) / 2
+
+        // Rarity tint on the tile itself (L2 #4): faint rarity wash over surface.2 + a slightly
+        // stronger rarity-mixed border. Subtle (§5 restraint). Falls back to plain tokens when the
+        // rarity is UNKNOWN (no rarity color).
+        val tileFill = if (rarityColor != null) {
+            LumenDraw.mix(Tokens.Color.voidS2, rarityColor, RARITY_TILE_TINT)
+        } else {
+            Tokens.Color.voidS2
+        }
+        val tileBorder = if (rarityColor != null) {
+            LumenDraw.mix(Tokens.Color.hairlineBase, rarityColor, RARITY_BORDER_TINT)
+        } else {
+            Tokens.Color.hairlineBase
+        }
+        LumenDraw.panel(ctx, tileX, tileY, ICON_TILE, ICON_TILE, tileFill, tileBorder)
+
+        // The real item, scaled up so it fills the tile (L2 #1). Item coords are the *unscaled*
+        // 16px box centered in the tile; LumenDraw.itemScaled scales about that box's center.
+        if (icon != null && !icon.isEmpty) {
+            val ix = tileX + (ICON_TILE - LumenDraw.ITEM_PX) / 2
+            val iy = tileY + (ICON_TILE - LumenDraw.ITEM_PX) / 2
+            LumenDraw.itemScaled(ctx, tr, icon, ix, iy, ICON_SCALE)
+        } else {
+            // Graceful fallback (L2 #1): a faint hairline placeholder glyph so nav entries without
+            // a real item still look intentional (a small concentric "orbital" tick — §5 motif).
+            iconPlaceholder(ctx, tileX, tileY)
+        }
+
+        // ── chevron on the right ─────────────────────────────────────────────────────
+        val chevron = "›"
         val chevW = measure(tr, chevron, LumenFonts.DISPLAY)
         val chevX = x + w - chevW - 8
         LumenDraw.text(
             ctx, tr, chevron, chevX, y + (CARD_HEIGHT - tr.fontHeight) / 2,
-            Tokens.Color.textLow, font = LumenFonts.DISPLAY,
+            if (hovered) Tokens.Color.textMid else Tokens.Color.textLow, font = LumenFonts.DISPLAY,
         )
 
-        // text column between icon tile and chevron
+        // ── text column between icon tile and chevron ────────────────────────────────
+        // Positions derive from tr.fontHeight so they stay correct as the font size is tuned (L2 #2).
         val textX = tileX + ICON_TILE + 8
         val textMaxW = chevX - 4 - textX
         if (entry.subtitle.isNullOrBlank()) {
@@ -249,11 +305,28 @@ object LumenWidgets {
             val ty = y + (CARD_HEIGHT - tr.fontHeight) / 2
             textClipped(ctx, tr, entry.title, textX, ty, textMaxW, Tokens.Color.textHi, LumenFonts.DISPLAY)
         } else {
-            val titleY = y + 6
-            val subY = y + CARD_HEIGHT - tr.fontHeight - 6
+            // Two lines: title near the top inset, subtitle near the bottom inset, both measured
+            // from the live font height so neither clips against the card edges.
+            val titleY = y + CARD_TEXT_INSET
+            val subY = y + CARD_HEIGHT - tr.fontHeight - CARD_TEXT_INSET
             textClipped(ctx, tr, entry.title, textX, titleY, textMaxW, Tokens.Color.textHi, LumenFonts.DISPLAY)
             textClipped(ctx, tr, entry.subtitle, textX, subY, textMaxW, Tokens.Color.textMid, LumenFonts.BODY)
         }
+    }
+
+    /**
+     * Faint placeholder for an empty/air icon tile (L2 #1): two concentric hairline ticks forming a
+     * tiny orbital mark (the §5 motif) so nav entries without a backing item read as intentional
+     * rather than broken. Token colors only.
+     */
+    private fun iconPlaceholder(ctx: DrawContext, tileX: Int, tileY: Int) {
+        val cx = tileX + ICON_TILE / 2
+        val cy = tileY + ICON_TILE / 2
+        val c = Tokens.Color.hairlineBright
+        // outer ring (8x8 hairline square approximating a ring)
+        LumenDraw.hairlineBorder(ctx, cx - 4, cy - 4, 8, 8, c)
+        // inner pip
+        LumenDraw.fillRect(ctx, cx - 1, cy - 1, 2, 2, c)
     }
 
     // ── footer ───────────────────────────────────────────────────────────────
