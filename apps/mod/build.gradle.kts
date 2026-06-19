@@ -3,14 +3,13 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 plugins {
     // Fabric Loom — handles MC + Fabric dependency resolution, Mixin, decompilation
     // Version must be hardcoded here; gradle.properties not available in plugins block
-    id("fabric-loom") version "1.17.11"
+    id("net.fabricmc.fabric-loom") version "1.17.11"
     // Kotlin JVM — Fabric Language Kotlin brings runtime support; this drives compilation
     kotlin("jvm") version "2.4.0"
 }
 
 // Eagerly read gradle.properties via extra.properties — snake_case keys match the file exactly.
 val minecraftVersion     = extra["minecraft_version"] as String
-val yarnMappings         = extra["yarn_mappings"] as String
 val loaderVersion        = extra["loader_version"] as String
 val fabricApiVersion     = extra["fabric_api_version"] as String
 val fabricLangKtVersion  = extra["fabric_language_kotlin_version"] as String
@@ -18,9 +17,9 @@ val modVersion           = extra["mod_version"] as String
 val mavenGroup           = extra["maven_group"] as String
 val archivesBaseName     = extra["archives_base_name"] as String
 
-// Java target: 21 is the minimum for MC 1.21.x / Fabric Loader 0.19.x.
+// Java target: 25 is the minimum for MC 26.1.x / Fabric Loader 0.19.x.
 // Building with Java 25 Temurin; javac --release 21 bytecode output is fully supported.
-val javaTarget = 21
+val javaTarget = 25
 
 version = modVersion
 group   = mavenGroup
@@ -44,18 +43,17 @@ repositories {
 }
 
 dependencies {
-    // Minecraft + Yarn mappings (deobfuscation layer)
+    // Minecraft + Mojang mappings
     minecraft("com.mojang:minecraft:$minecraftVersion")
-    mappings("net.fabricmc:yarn:$yarnMappings:v2")
 
     // Fabric Loader
-    modImplementation("net.fabricmc:fabric-loader:$loaderVersion")
+    implementation("net.fabricmc:fabric-loader:$loaderVersion")
 
     // Fabric API — the standard set of hooks/events
-    modImplementation("net.fabricmc.fabric-api:fabric-api:$fabricApiVersion")
+    implementation("net.fabricmc.fabric-api:fabric-api:$fabricApiVersion")
 
     // Fabric Language Kotlin — ships Kotlin stdlib + coroutines into the mod environment
-    modImplementation("net.fabricmc:fabric-language-kotlin:$fabricLangKtVersion")
+    implementation("net.fabricmc:fabric-language-kotlin:$fabricLangKtVersion")
 
     // Unit testing (JUnit 5 via kotlin-test). Tests are pure-JVM: the Atlas core
     // and the §11 fitness scan must NOT depend on Minecraft runtime types so they
@@ -67,7 +65,7 @@ dependencies {
 
 kotlin {
     compilerOptions {
-        jvmTarget = JvmTarget.JVM_21
+        jvmTarget = JvmTarget.JVM_25
     }
 }
 

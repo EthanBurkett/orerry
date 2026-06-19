@@ -3,13 +3,13 @@ package gg.orrery.lumen
 import gg.orrery.atlas.MenuEntry
 import gg.orrery.atlas.Rarity
 import gg.orrery.generated.Tokens
-import net.minecraft.client.font.TextRenderer
-import net.minecraft.client.gui.DrawContext
-import net.minecraft.item.ItemStack
-import net.minecraft.text.Style
-import net.minecraft.text.StyleSpriteSource
-import net.minecraft.text.Text
-import net.minecraft.util.Identifier
+import net.minecraft.client.gui.Font
+import net.minecraft.client.gui.GuiGraphicsExtractor
+import net.minecraft.world.item.ItemStack
+import net.minecraft.network.chat.Style
+import net.minecraft.network.chat.FontDescription
+import net.minecraft.network.chat.Component
+import net.minecraft.resources.Identifier
 
 /**
  * LumenWidgets — reusable, token-driven semantic draw helpers for Orrery's custom menu views
@@ -85,20 +85,20 @@ object LumenWidgets {
     // ── text measurement with an Orrery font ─────────────────────────────────
 
     /** Builds a [Text] styled with the given Orrery [font] (so width + draw use the same glyphs). */
-    private fun styled(str: String, font: Identifier): Text =
-        Text.literal(str).setStyle(Style.EMPTY.withFont(StyleSpriteSource.Font(font)))
+    private fun styled(str: String, font: Identifier): Component =
+        Component.literal(str).setStyle(Style.EMPTY.withFont(FontDescription.Resource(font)))
 
     /** Measured pixel width of [str] when drawn in the Orrery [font]. */
-    fun measure(tr: TextRenderer, str: String, font: Identifier): Int =
-        tr.getWidth(styled(str, font))
+    fun measure(tr: Font, str: String, font: Identifier): Int =
+        tr.width(styled(str, font))
 
     /**
      * Draws [str] in [font], truncated with an ellipsis so it never exceeds [maxWidth] px.
      * Used for titles/subtitles that may overflow a card column.
      */
     fun textClipped(
-        ctx: DrawContext,
-        tr: TextRenderer,
+        ctx: GuiGraphicsExtractor,
+        tr: Font,
         str: String,
         x: Int,
         y: Int,
@@ -146,8 +146,8 @@ object LumenWidgets {
      * Returns [HeaderResult] so the view can hit-test both glyphs.
      */
     fun headerWithBack(
-        ctx: DrawContext,
-        tr: TextRenderer,
+        ctx: GuiGraphicsExtractor,
+        tr: Font,
         x: Int,
         y: Int,
         w: Int,
@@ -168,7 +168,7 @@ object LumenWidgets {
         val closeColor = if (closeHover) Tokens.Color.cyanBase else Tokens.Color.textLow
         LumenDraw.text(
             ctx, tr, closeGlyph,
-            closeX + 3, y + (HEADER_HEIGHT - tr.fontHeight) / 2,
+            closeX + 3, y + (HEADER_HEIGHT - tr.lineHeight) / 2,
             closeColor, font = LumenFonts.DISPLAY,
         )
 
@@ -186,7 +186,7 @@ object LumenWidgets {
             val backColor = if (backHover) Tokens.Color.cyanBase else Tokens.Color.textLow
             LumenDraw.text(
                 ctx, tr, backGlyph,
-                backX + 2, y + (HEADER_HEIGHT - tr.fontHeight) / 2,
+                backX + 2, y + (HEADER_HEIGHT - tr.lineHeight) / 2,
                 backColor, font = LumenFonts.DISPLAY,
             )
             backResult = intArrayOf(backX, backY, backW, backH)
@@ -199,7 +199,7 @@ object LumenWidgets {
             val pw = measure(tr, purse, LumenFonts.MONO)
             LumenDraw.text(
                 ctx, tr, purse,
-                closeX - 10 - pw, y + (HEADER_HEIGHT - tr.fontHeight) / 2,
+                closeX - 10 - pw, y + (HEADER_HEIGHT - tr.lineHeight) / 2,
                 Tokens.Color.brassHi, font = LumenFonts.MONO,
             )
             titleMaxX = closeX - 10 - pw - 6
@@ -208,7 +208,7 @@ object LumenWidgets {
         // title (DISPLAY, text-hi) — clipped to available space
         val titleMaxW = titleMaxX - titleX
         textClipped(
-            ctx, tr, title, titleX, y + (HEADER_HEIGHT - tr.fontHeight) / 2,
+            ctx, tr, title, titleX, y + (HEADER_HEIGHT - tr.lineHeight) / 2,
             titleMaxW, Tokens.Color.textHi, LumenFonts.DISPLAY,
         )
 
@@ -223,8 +223,8 @@ object LumenWidgets {
      * arrow. Returns only the close rect (as before).
      */
     fun header(
-        ctx: DrawContext,
-        tr: TextRenderer,
+        ctx: GuiGraphicsExtractor,
+        tr: Font,
         x: Int,
         y: Int,
         w: Int,
@@ -245,8 +245,8 @@ object LumenWidgets {
      * have no magnifier emoji) sits at the left. Display-only filtering UI (§2 compliant).
      */
     fun searchField(
-        ctx: DrawContext,
-        tr: TextRenderer,
+        ctx: GuiGraphicsExtractor,
+        tr: Font,
         x: Int,
         y: Int,
         w: Int,
@@ -268,7 +268,7 @@ object LumenWidgets {
         LumenDraw.fillRect(ctx, lensX, lensY + 1, 1, 4, ring)          // left
         LumenDraw.fillRect(ctx, lensX + 5, lensY + 1, 1, 4, ring)      // right
         LumenDraw.fillRect(ctx, lensX + 6, lensY + 6, 2, 2, ring)      // handle
-        val textY = y + (SEARCH_HEIGHT - tr.fontHeight) / 2
+        val textY = y + (SEARCH_HEIGHT - tr.lineHeight) / 2
         val textX = x + 18
         if (query.isEmpty()) {
             LumenDraw.text(ctx, tr, "Search the menu…", textX, textY, Tokens.Color.textLow, font = LumenFonts.BODY)
@@ -298,8 +298,8 @@ object LumenWidgets {
      * Pure draw; the view owns hit-testing + routing.
      */
     fun entryCard(
-        ctx: DrawContext,
-        tr: TextRenderer,
+        ctx: GuiGraphicsExtractor,
+        tr: Font,
         x: Int,
         y: Int,
         w: Int,
@@ -371,7 +371,7 @@ object LumenWidgets {
         val chevW = measure(tr, chevron, LumenFonts.DISPLAY)
         val chevX = x + w - chevW - 8
         LumenDraw.text(
-            ctx, tr, chevron, chevX, y + (CARD_HEIGHT - tr.fontHeight) / 2,
+            ctx, tr, chevron, chevX, y + (CARD_HEIGHT - tr.lineHeight) / 2,
             if (hovered || selected) Tokens.Color.textMid else Tokens.Color.textLow, font = LumenFonts.DISPLAY,
         )
 
@@ -381,13 +381,13 @@ object LumenWidgets {
         val textMaxW = chevX - 4 - textX
         if (entry.subtitle.isNullOrBlank()) {
             // single line, vertically centered
-            val ty = y + (CARD_HEIGHT - tr.fontHeight) / 2
+            val ty = y + (CARD_HEIGHT - tr.lineHeight) / 2
             textClipped(ctx, tr, entry.title, textX, ty, textMaxW, Tokens.Color.textHi, LumenFonts.DISPLAY)
         } else {
             // Two lines: title near the top inset, subtitle near the bottom inset, both measured
             // from the live font height so neither clips against the card edges.
             val titleY = y + CARD_TEXT_INSET
-            val subY = y + CARD_HEIGHT - tr.fontHeight - CARD_TEXT_INSET
+            val subY = y + CARD_HEIGHT - tr.lineHeight - CARD_TEXT_INSET
             textClipped(ctx, tr, entry.title, textX, titleY, textMaxW, Tokens.Color.textHi, LumenFonts.DISPLAY)
             textClipped(ctx, tr, entry.subtitle, textX, subY, textMaxW, Tokens.Color.textMid, LumenFonts.BODY)
         }
@@ -398,7 +398,7 @@ object LumenWidgets {
      * tiny orbital mark (the §5 motif) so nav entries without a backing item read as intentional
      * rather than broken. Token colors only.
      */
-    private fun iconPlaceholder(ctx: DrawContext, tileX: Int, tileY: Int) {
+    private fun iconPlaceholder(ctx: GuiGraphicsExtractor, tileX: Int, tileY: Int) {
         val cx = tileX + ICON_TILE / 2
         val cy = tileY + ICON_TILE / 2
         val c = Tokens.Color.hairlineBright
@@ -434,8 +434,8 @@ object LumenWidgets {
      * Degrades gracefully: if [prevEntry]/[nextEntry] are null, no controls are shown.
      */
     fun footerWithPagination(
-        ctx: DrawContext,
-        tr: TextRenderer,
+        ctx: GuiGraphicsExtractor,
+        tr: Font,
         x: Int,
         y: Int,
         w: Int,
@@ -471,7 +471,7 @@ object LumenWidgets {
                 val nw = measure(tr, nextLabel, LumenFonts.BODY) + 8
                 val nx = cx - nw
                 val nh = PAGINATION_BTN_H
-                val ny = ty - (PAGINATION_BTN_H - tr.fontHeight) / 2
+                val ny = ty - (PAGINATION_BTN_H - tr.lineHeight) / 2
                 val nextHover = mouseX >= nx && mouseX < nx + nw &&
                     mouseY >= ny && mouseY < ny + nh
                 LumenDraw.text(
@@ -496,7 +496,7 @@ object LumenWidgets {
                 val pw = measure(tr, prevLabel, LumenFonts.BODY) + 8
                 val px = cx - pw
                 val ph = PAGINATION_BTN_H
-                val py = ty - (PAGINATION_BTN_H - tr.fontHeight) / 2
+                val py = ty - (PAGINATION_BTN_H - tr.lineHeight) / 2
                 val prevHover = mouseX >= px && mouseX < px + pw &&
                     mouseY >= py && mouseY < py + ph
                 LumenDraw.text(
@@ -516,8 +516,8 @@ object LumenWidgets {
      * pagination controls, returning nothing.
      */
     fun footer(
-        ctx: DrawContext,
-        tr: TextRenderer,
+        ctx: GuiGraphicsExtractor,
+        tr: Font,
         x: Int,
         y: Int,
         w: Int,
@@ -550,8 +550,8 @@ object LumenWidgets {
      * @param elapsedMs milliseconds since the screen opened (drives the animation frame).
      */
     fun loadingState(
-        ctx: DrawContext,
-        tr: TextRenderer,
+        ctx: GuiGraphicsExtractor,
+        tr: Font,
         x: Int,
         y: Int,
         w: Int,
@@ -559,7 +559,7 @@ object LumenWidgets {
         elapsedMs: Float,
     ) {
         val cx = x + w / 2
-        val cy = y + h / 2 - tr.fontHeight / 2 - 6  // slightly above center to leave room for text
+        val cy = y + h / 2 - tr.lineHeight / 2 - 6  // slightly above center to leave room for text
 
         // Orbital ring: 8 pips arranged in a 12px radius circle.
         // Each pip is a 2x2 filled square. The "lit" pip cycles every 125ms (8 fps).
@@ -595,7 +595,7 @@ object LumenWidgets {
      * A thin brass progress bar: a surface.2 track with a brass fill at [fraction] (0..1).
      * Used by the footer when a level/progress value is genuinely derivable from the data.
      */
-    fun progressBar(ctx: DrawContext, x: Int, y: Int, w: Int, h: Int, fraction: Float) {
+    fun progressBar(ctx: GuiGraphicsExtractor, x: Int, y: Int, w: Int, h: Int, fraction: Float) {
         val f = fraction.coerceIn(0f, 1f)
         LumenDraw.panel(ctx, x, y, w, h, Tokens.Color.voidS2, Tokens.Color.hairlineBase)
         val fillW = ((w - 2) * f).toInt()

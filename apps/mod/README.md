@@ -1,20 +1,19 @@
 # @orrery/mod — Fabric Mod
 
-Orrery in-game client mod. Kotlin + Fabric + Loom, targeting MC **1.21.11 only**.
+Orrery in-game client mod. Kotlin + Fabric + Loom, targeting MC **26.1.2 only**.
 
-## Pinned versions (verified 2026-06-17)
+## Pinned versions (verified 2026-06-18)
 
-| Component | Version |
-|---|---|
-| Minecraft | 1.21.11 |
-| Yarn mappings | 1.21.11+build.6 |
-| Fabric Loader | 0.19.3 |
-| Fabric API | 0.141.4+1.21.11 |
-| Fabric Language Kotlin | 1.13.12+kotlin.2.4.0 |
-| Fabric Loom | 1.17.11 |
-| Gradle (wrapper) | 9.5.1 |
-| Kotlin compiler | 2.4.0 |
-| Java target | 21 (build/run with Java 25 Temurin) |
+| Component | Version                             |
+|---|-------------------------------------|
+| Minecraft | 26.1.2                              |
+| Fabric Loader | 0.19.3                              |
+| Fabric API | 0.152.1+26.1.2                      |
+| Fabric Language Kotlin | 1.13.12+kotlin.2.4.0                |
+| Fabric Loom | 1.17.11                             |
+| Gradle (wrapper) | 9.6.0                               |
+| Kotlin compiler | 2.4.0                               |
+| Java target | 25 (build/run with Java 25 Temurin) |
 
 Sources: [meta.fabricmc.net](https://meta.fabricmc.net), [maven.fabricmc.net](https://maven.fabricmc.net)
 

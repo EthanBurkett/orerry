@@ -2,11 +2,11 @@ package gg.orrery.eclipse
 
 import gg.orrery.atlas.AtlasAdapter
 import gg.orrery.lumen.SkyBlockMenuView
-import net.minecraft.client.MinecraftClient
-import net.minecraft.client.gui.screen.Screen
-import net.minecraft.entity.player.PlayerInventory
-import net.minecraft.screen.GenericContainerScreenHandler
-import net.minecraft.text.Text
+import net.minecraft.client.Minecraft
+import net.minecraft.client.gui.screens.Screen
+import net.minecraft.world.entity.player.Inventory
+import net.minecraft.world.inventory.ChestMenu
+import net.minecraft.network.chat.Component
 
 /**
  * EclipseViews — the menu ownership registry (DESIGN_SPEC §6.3, ADR 0003 §4).
@@ -45,7 +45,7 @@ object EclipseViews {
      * it needs for the vanilla open/close lifecycle.
      */
     fun interface ViewFactory {
-        fun build(handler: GenericContainerScreenHandler, title: Text, playerInventory: PlayerInventory): Screen
+        fun build(handler: ChestMenu, title: Component, playerInventory: Inventory): Screen
     }
 
     private val factories = mutableMapOf<String, ViewFactory>()
@@ -62,10 +62,10 @@ object EclipseViews {
      * Runs Atlas (parse + recognize) against the live handler. Reuses [handler] verbatim,
      * so the produced screen shares the same `syncId` as the vanilla screen would have.
      */
-    fun viewFor(handler: GenericContainerScreenHandler, title: Text): Screen? {
+    fun viewFor(handler: ChestMenu, title: Component): Screen? {
         val (_, recognizer) = AtlasAdapter.parseAndRecognize(title, handler)
         val factory = recognizer?.let { factories[it.id] } ?: return null
-        val playerInventory = MinecraftClient.getInstance().player?.inventory ?: return null
+        val playerInventory = Minecraft.getInstance().player?.inventory ?: return null
         return factory.build(handler, title, playerInventory)
     }
 
@@ -77,7 +77,7 @@ object EclipseViews {
      * the menu is not owned by Orrery.
      */
     @JvmStatic
-    fun orreryScreenFor(handler: GenericContainerScreenHandler, title: Text): Screen? =
+    fun orreryScreenFor(handler: ChestMenu, title: Component): Screen? =
         viewFor(handler, title)
 
     /**

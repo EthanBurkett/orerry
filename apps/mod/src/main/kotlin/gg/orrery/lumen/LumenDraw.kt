@@ -1,13 +1,13 @@
 package gg.orrery.lumen
 
 import gg.orrery.generated.Tokens
-import net.minecraft.client.font.TextRenderer
-import net.minecraft.client.gui.DrawContext
-import net.minecraft.item.ItemStack
-import net.minecraft.text.Style
-import net.minecraft.text.StyleSpriteSource
-import net.minecraft.text.Text
-import net.minecraft.util.Identifier
+import net.minecraft.client.gui.Font
+import net.minecraft.client.gui.GuiGraphicsExtractor
+import net.minecraft.world.item.ItemStack
+import net.minecraft.network.chat.Style
+import net.minecraft.network.chat.FontDescription
+import net.minecraft.network.chat.Component
+import net.minecraft.resources.Identifier
 
 /**
  * LumenDraw — token-driven primitive draw helpers over [DrawContext] (DESIGN_SPEC §5, §6.4).
@@ -34,7 +34,7 @@ import net.minecraft.util.Identifier
 object LumenDraw {
 
     /** A filled, axis-aligned rectangle in token color [argb]. (x,y) top-left; w,h size. */
-    fun fillRect(ctx: DrawContext, x: Int, y: Int, w: Int, h: Int, argb: Int) {
+    fun fillRect(ctx: GuiGraphicsExtractor, x: Int, y: Int, w: Int, h: Int, argb: Int) {
         ctx.fill(x, y, x + w, y + h, argb)
     }
 
@@ -42,7 +42,7 @@ object LumenDraw {
      * A 1px hairline border around the rectangle (x,y,w,h) in token color [argb].
      * Drawn as four thin filled edges — no texture, no bevel.
      */
-    fun hairlineBorder(ctx: DrawContext, x: Int, y: Int, w: Int, h: Int, argb: Int) {
+    fun hairlineBorder(ctx: GuiGraphicsExtractor, x: Int, y: Int, w: Int, h: Int, argb: Int) {
         ctx.fill(x, y, x + w, y + 1, argb)                 // top
         ctx.fill(x, y + h - 1, x + w, y + h, argb)         // bottom
         ctx.fill(x, y, x + 1, y + h, argb)                 // left
@@ -53,7 +53,7 @@ object LumenDraw {
      * A surface panel: a filled [fill] rectangle with a hairline border [border].
      * The fundamental Orrery container/cell shape (surface.N fill + hairline).
      */
-    fun panel(ctx: DrawContext, x: Int, y: Int, w: Int, h: Int, fill: Int, border: Int) {
+    fun panel(ctx: GuiGraphicsExtractor, x: Int, y: Int, w: Int, h: Int, fill: Int, border: Int) {
         fillRect(ctx, x, y, w, h, fill)
         hairlineBorder(ctx, x, y, w, h, border)
     }
@@ -86,8 +86,8 @@ object LumenDraw {
      * Yarn 1.21.11: [DrawContext.drawText] with [Text] = method_51439.
      */
     fun text(
-        ctx: DrawContext,
-        textRenderer: TextRenderer,
+        ctx: GuiGraphicsExtractor,
+        textRenderer: Font,
         str: String,
         x: Int,
         y: Int,
@@ -95,9 +95,9 @@ object LumenDraw {
         shadow: Boolean = false,
         font: Identifier = LumenFonts.DISPLAY,
     ) {
-        val styled: Text = Text.literal(str)
-            .setStyle(Style.EMPTY.withFont(StyleSpriteSource.Font(font)))
-        ctx.drawText(textRenderer, styled, x, y, argb, shadow)
+        val styled: Component = Component.literal(str)
+            .setStyle(Style.EMPTY.withFont(FontDescription.Resource(font)))
+        ctx.text(textRenderer, styled, x, y, argb, shadow)
     }
 
     /**
@@ -117,8 +117,8 @@ object LumenDraw {
      * (pushMatrix / translate / scale / popMatrix); [DrawContext.drawItem] = method_51427.
      */
     fun itemScaled(
-        ctx: DrawContext,
-        tr: TextRenderer,
+        ctx: GuiGraphicsExtractor,
+        tr: Font,
         stack: ItemStack,
         x: Int,
         y: Int,
@@ -127,14 +127,14 @@ object LumenDraw {
         if (stack.isEmpty) return
         val cx = x + ITEM_PX / 2f
         val cy = y + ITEM_PX / 2f
-        val matrices = ctx.matrices
+        val matrices = ctx.pose()
         matrices.pushMatrix()
         // scale about the item's center so it grows in place rather than off toward the origin
         matrices.translate(cx, cy)
         matrices.scale(scale)
         matrices.translate(-cx, -cy)
-        ctx.drawItem(stack, x, y)
-        ctx.drawStackOverlay(tr, stack, x, y)
+        ctx.item(stack, x, y)
+        ctx.itemDecorations(tr, stack, x, y)
         matrices.popMatrix()
     }
 

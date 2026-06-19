@@ -18,7 +18,7 @@ out/
 apps/launcher/src-tauri/target/
 
 # Gradle
-.gradle/
+apps/mod/.gradle/
 apps/mod/build/
 apps/mod/.gradle/
 

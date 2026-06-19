@@ -2,14 +2,14 @@ package gg.orrery.lumen
 
 import gg.orrery.eclipse.Interaction
 import gg.orrery.generated.Tokens
-import net.minecraft.client.MinecraftClient
-import net.minecraft.client.gui.Click
-import net.minecraft.client.gui.DrawContext
-import net.minecraft.client.gui.screen.ingame.HandledScreen
-import net.minecraft.entity.player.PlayerInventory
-import net.minecraft.screen.GenericContainerScreenHandler
-import net.minecraft.screen.slot.SlotActionType
-import net.minecraft.text.Text
+import net.minecraft.client.Minecraft
+import net.minecraft.client.input.MouseButtonEvent
+import net.minecraft.client.gui.GuiGraphicsExtractor
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen
+import net.minecraft.world.entity.player.Inventory
+import net.minecraft.world.inventory.ChestMenu
+import net.minecraft.world.inventory.ContainerInput
+import net.minecraft.network.chat.Component
 
 /**
  * OrreryContainerScreen — the first Orrery custom menu (DESIGN_SPEC §6.3, §6.4; ADR 0003 §4).
@@ -55,10 +55,10 @@ import net.minecraft.text.Text
  *   SlotActionType.PICKUP / QUICK_MOVE
  */
 class OrreryContainerScreen(
-    handler: GenericContainerScreenHandler,
-    playerInventory: PlayerInventory,
-    title: Text,
-) : HandledScreen<GenericContainerScreenHandler>(handler, playerInventory, title) {
+    handler: ChestMenu,
+    playerInventory: Inventory,
+    title: Component,
+) : AbstractContainerScreen<ChestMenu>(handler, playerInventory, title) {
 
     // --- Orrery grid geometry (px). Computed in [init]. Independent of vanilla positions. ---
     private val cellSize = 20          // slot cell edge
@@ -78,12 +78,12 @@ class OrreryContainerScreen(
 
     /** Number of container slots (rows * 9), i.e. the menu proper, excluding player inventory. */
     private val containerSlotCount: Int
-        get() = handler.rows * 9
+        get() = menu.rowCount * 9
 
     override fun init() {
         super.init()
         cols = 9
-        rows = handler.rows
+        rows = menu.rowCount
 
         val gridW = cols * cellSize + (cols - 1) * cellGap
         val gridH = rows * cellSize + (rows - 1) * cellGap
@@ -102,17 +102,13 @@ class OrreryContainerScreen(
     // would paint the vanilla title + "Inventory" label. We draw our own in [render].
     // -------------------------------------------------------------------------------------
 
-    override fun drawBackground(context: DrawContext, delta: Float, mouseX: Int, mouseY: Int) {
-        // no-op — no chest texture, no vanilla slot grid (§5.1).
-    }
-
-    override fun drawForeground(context: DrawContext, mouseX: Int, mouseY: Int) {
+    override fun extractLabels(context: GuiGraphicsExtractor, mouseX: Int, mouseY: Int) {
         // no-op — Orrery draws its own title in [render]; suppress vanilla labels.
     }
 
-    override fun render(context: DrawContext, mouseX: Int, mouseY: Int, delta: Float) {
+    override fun extractRenderState(context: GuiGraphicsExtractor, mouseX: Int, mouseY: Int, delta: Float) {
         // Dim/blur the world behind, like any screen, then draw 100% Orrery content.
-        renderBackground(context, mouseX, mouseY, delta)
+        extractBackground(context, mouseX, mouseY, delta)
 
         // Void backdrop across the panel area + the surface.1 panel with hairline border.
         LumenDraw.fillRect(context, 0, 0, width, height, OVERLAY_SCRIM)
@@ -123,7 +119,7 @@ class OrreryContainerScreen(
 
         // Title (token text, vanilla glyphs for now — TODO(phase2-msdf)).
         LumenDraw.text(
-            context, textRenderer, title.string,
+            context, font, title.string,
             panelX + panelPadding, panelY + panelPadding,
             Tokens.Color.textHi, shadow = false,
         )
@@ -139,20 +135,20 @@ class OrreryContainerScreen(
                 border = if (isHover) Tokens.Color.hairlineBright else Tokens.Color.hairlineBase,
             )
 
-            val slot = handler.slots.getOrNull(index) ?: continue
-            val stack = slot.stack
+            val slot = menu.slots.getOrNull(index) ?: continue
+            val stack = slot.item
             if (!stack.isEmpty) {
                 // Item icons are data (server models), allowed per ADR 0004.
-                context.drawItem(stack, cx + 2, cy + 2)
-                context.drawStackOverlay(textRenderer, stack, cx + 2, cy + 2)
+                context.item(stack, cx + 2, cy + 2)
+                context.itemDecorations(font, stack, cx + 2, cy + 2)
             }
         }
 
         // Vanilla tooltip for the hovered slot's stack (data, not chrome).
         if (hovered != null) {
-            val stack = handler.slots.getOrNull(hovered)?.stack
+            val stack = menu.slots.getOrNull(hovered)?.item
             if (stack != null && !stack.isEmpty) {
-                context.drawItemTooltip(textRenderer, stack, mouseX, mouseY)
+                context.setTooltipForNextFrame(font, stack, mouseX, mouseY)
             }
         }
     }
@@ -164,20 +160,20 @@ class OrreryContainerScreen(
      * super, so vanilla `clickSlot` never fires). Off-grid clicks fall through to vanilla
      * screen behavior (e.g. closing on outside-click).
      */
-    override fun mouseClicked(click: Click, doubled: Boolean): Boolean {
+    override fun mouseClicked(click: MouseButtonEvent, doubled: Boolean): Boolean {
         val index = slotIndexAt(click.x, click.y)
         if (index != null) {
-            val slot = handler.slots.getOrNull(index)
+            val slot = menu.slots.getOrNull(index)
             if (slot != null) {
                 val button = click.button()                 // 0 = left, 1 = right
-                val shift = MinecraftClient.getInstance().isShiftPressed
+                val shift = Minecraft.getInstance().hasShiftDown()
                 val action = when {
-                    button == 1 -> SlotActionType.PICKUP                                  // right-click
-                    shift -> SlotActionType.QUICK_MOVE                                     // shift+left
-                    else -> SlotActionType.PICKUP                                          // left-click
+                    button == 1 -> ContainerInput.PICKUP                                  // right-click
+                    shift -> ContainerInput.QUICK_MOVE                                     // shift+left
+                    else -> ContainerInput.PICKUP                                          // left-click
                 }
                 // THE only sanctioned action path (§2.3, §11). Real slot index, same syncId.
-                Interaction.clickSlot(handler.syncId, slot.index, button, action)
+                Interaction.clickSlot(menu.containerId, slot.containerSlot, button, action)
             }
             return true
         }

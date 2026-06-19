@@ -6,18 +6,19 @@ import gg.orrery.atlas.MenuEntry
 import gg.orrery.atlas.parseEntries
 import gg.orrery.eclipse.Interaction
 import gg.orrery.generated.Tokens
-import net.minecraft.client.MinecraftClient
-import net.minecraft.client.gui.Click
-import net.minecraft.client.gui.DrawContext
-import net.minecraft.client.gui.screen.ingame.HandledScreen
-import net.minecraft.client.input.CharInput
-import net.minecraft.client.input.KeyInput
-import net.minecraft.entity.player.PlayerInventory
-import net.minecraft.item.ItemStack
-import net.minecraft.screen.GenericContainerScreenHandler
-import net.minecraft.screen.slot.SlotActionType
-import net.minecraft.text.Text
+import net.minecraft.client.Minecraft
+import net.minecraft.client.input.MouseButtonEvent
+import net.minecraft.client.gui.GuiGraphicsExtractor
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen
+import net.minecraft.client.input.CharacterEvent
+import net.minecraft.client.input.KeyEvent
+import net.minecraft.world.entity.player.Inventory
+import net.minecraft.world.item.ItemStack
+import net.minecraft.world.inventory.ChestMenu
+import net.minecraft.world.inventory.ContainerInput
+import net.minecraft.network.chat.Component
 import org.lwjgl.glfw.GLFW
+import java.awt.Container
 
 /**
  * SkyBlockMenuView — the semantic card re-render of the SkyBlock main menu
@@ -84,10 +85,10 @@ import org.lwjgl.glfw.GLFW
  *   SlotActionType.PICKUP / QUICK_MOVE
  */
 class SkyBlockMenuView(
-    handler: GenericContainerScreenHandler,
-    playerInventory: PlayerInventory,
-    title: Text,
-) : HandledScreen<GenericContainerScreenHandler>(handler, playerInventory, title) {
+    handler: ChestMenu,
+    playerInventory: Inventory,
+    title: Component,
+) : AbstractContainerScreen<ChestMenu>(handler, playerInventory, title) {
 
     // ── live entries (L2 #5) ────────────────────────────────────────────────────
     // SkyBlock mutates menu contents after open (loading panes → real items). We therefore
@@ -103,7 +104,7 @@ class SkyBlockMenuView(
      * Cached list of container slots (never player inventory), updated on every rebuild.
      * Avoids calling handler.slots.filter on every frame.
      */
-    private var cachedContainerSlots: List<net.minecraft.screen.slot.Slot> = emptyList()
+    private var cachedContainerSlots: List<net.minecraft.world.inventory.Slot> = emptyList()
 
     /**
      * Cached purse string (or null), updated on every rebuild (§4 perf fix).
@@ -189,7 +190,7 @@ class SkyBlockMenuView(
      * PERF: direct callers in render now use [cachedContainerSlots] instead; this private helper
      * is only called from within [rebuildEntriesIfStale].
      */
-    private fun computeContainerSlots() = handler.slots.filter { it.inventory !is PlayerInventory }
+    private fun computeContainerSlots() = menu.slots.filter { it.container !is Inventory }
 
     /**
      * Cheap content fingerprint of the container slots: folds each stack's item + count so the view
@@ -198,7 +199,7 @@ class SkyBlockMenuView(
     private fun slotFingerprint(): Int {
         var h = 1
         for (slot in cachedContainerSlots.ifEmpty { computeContainerSlots() }) {
-            val s = slot.stack
+            val s = slot.item
             h = 31 * h + if (s.isEmpty) 0 else (System.identityHashCode(s.item) * 31 + s.count)
         }
         return h
@@ -222,7 +223,7 @@ class SkyBlockMenuView(
 
         // Re-parse from live handler
         cachedContainerSlots = computeContainerSlots()
-        val parsed = AtlasAdapter.parse(title, handler)
+        val parsed = AtlasAdapter.parse(title, menu)
         entries = parseEntries(parsed)
 
         lastSlotFingerprint = fp
@@ -330,22 +331,18 @@ class SkyBlockMenuView(
 
     // ── suppress vanilla chrome (§5.1) ─────────────────────────────────────────
 
-    override fun drawBackground(context: DrawContext, delta: Float, mouseX: Int, mouseY: Int) {
-        // no-op — no chest texture, no vanilla slot grid.
-    }
-
-    override fun drawForeground(context: DrawContext, mouseX: Int, mouseY: Int) {
+    override fun extractLabels(context: GuiGraphicsExtractor, mouseX: Int, mouseY: Int) {
         // no-op — Orrery draws its own title/labels in [render].
     }
 
     // ── render ─────────────────────────────────────────────────────────────────
 
-    override fun render(context: DrawContext, mouseX: Int, mouseY: Int, delta: Float) {
+    override fun extractRenderState(context: GuiGraphicsExtractor, mouseX: Int, mouseY: Int, delta: Float) {
         // L2 #5 (perf): refresh entries from the live handler (loading panes → real items),
         // rebuilding all derived cached state in one pass.
         rebuildEntriesIfStale()
 
-        renderBackground(context, mouseX, mouseY, delta)
+        extractBackground(context, mouseX, mouseY, delta)
 
         // ── open animation (§5 motion) ────────────────────────────────────────────
         // Fade alpha 0→1 and scale 0.98→1.0 over OPEN_ANIM_MS with cubic-ease-out feel.
@@ -354,7 +351,7 @@ class SkyBlockMenuView(
         val alpha = animT  // 0..1
         val panelScale = 0.98f + 0.02f * animT  // 0.98..1.0
 
-        val matrices = context.matrices
+        val matrices = context.pose()
         val panelCx = (panelX + panelW / 2).toFloat()
         val panelCy = (panelY + panelH / 2).toFloat()
 
@@ -372,14 +369,14 @@ class SkyBlockMenuView(
 
         // header (title + optional back-arrow + purse + close ×)
         val headerResult = LumenWidgets.headerWithBack(
-            context, textRenderer, contentX, headerY, contentW,
+            context, font, contentX, headerY, contentW,
             title.string, cachedPurse, cachedBackEntry != null, mouseX, mouseY,
         )
         closeRect = headerResult.closeRect
         backRect = if (cachedBackEntry != null) headerResult.backRect else null
 
         // search field
-        LumenWidgets.searchField(context, textRenderer, contentX, searchY, contentW, query, searchFocused)
+        LumenWidgets.searchField(context, font, contentX, searchY, contentW, query, searchFocused)
 
         // body: 2-column scrollable card list, clipped to the body viewport
         scrollOffset = scrollOffset.coerceIn(0, maxScroll)
@@ -387,19 +384,19 @@ class SkyBlockMenuView(
         context.enableScissor(contentX, bodyY, contentX + contentW, bodyBottom)
 
         // Determine loading vs. empty vs. populated states
-        val allEmpty = cachedContainerSlots.all { it.stack.isEmpty }
+        val allEmpty = cachedContainerSlots.all { it.item.isEmpty }
         val withinGrace = elapsed < LOADING_GRACE_MS
         val isLoading = (allEmpty || entries.isEmpty()) && withinGrace
 
         when {
             isLoading -> {
                 // Loading state: animated orbital indicator + "Loading…"
-                LumenWidgets.loadingState(context, textRenderer, contentX, bodyY, contentW, bodyH, elapsed)
+                LumenWidgets.loadingState(context, font, contentX, bodyY, contentW, bodyH, elapsed)
             }
             list.isEmpty() -> {
                 val msg = if (entries.isEmpty()) "No entries in this menu." else "No matches."
                 LumenDraw.text(
-                    context, textRenderer, msg,
+                    context, font, msg,
                     contentX, bodyY + 6, Tokens.Color.textLow, font = LumenFonts.BODY,
                 )
             }
@@ -414,7 +411,7 @@ class SkyBlockMenuView(
                     val isHovered = hovered == i
                     val isSelected = selectedCardIndex == i
                     LumenWidgets.entryCard(
-                        context, textRenderer, cx, cy, cardW, entry,
+                        context, font, cx, cy, cardW, entry,
                         iconFor(entry), hovered = isHovered, selected = isSelected,
                     )
                 }
@@ -427,7 +424,7 @@ class SkyBlockMenuView(
         val total = cachedCardEntries.size
         val leftLabel = if (query.isBlank()) "$total entries" else "$count of $total entries"
         val footerResult = LumenWidgets.footerWithPagination(
-            context, textRenderer, contentX, bodyBottom + 4, contentW,
+            context, font, contentX, bodyBottom + 4, contentW,
             leftLabel, cachedPrevEntry, cachedNextEntry, cachedPageIndicator, mouseX, mouseY,
         )
         prevRect = footerResult.prevRect
@@ -442,21 +439,21 @@ class SkyBlockMenuView(
             val entry = visibleCards.getOrNull(hovered)
             val stack = entry?.let { iconFor(it) }
             if (stack != null && !stack.isEmpty) {
-                context.drawItemTooltip(textRenderer, stack, mouseX, mouseY)
+                context.setTooltipForNextFrame(font, stack, mouseX, mouseY)
             }
         }
     }
 
     // ── input: clicks ───────────────────────────────────────────────────────────
 
-    override fun mouseClicked(click: Click, doubled: Boolean): Boolean {
+    override fun mouseClicked(click: MouseButtonEvent, doubled: Boolean): Boolean {
         val mx = click.x
         val my = click.y
 
         // close ×
         closeRect?.let { r ->
             if (mx >= r[0] && mx < r[0] + r[2] && my >= r[1] && my < r[1] + r[3]) {
-                close()
+                onClose()
                 return true
             }
         }
@@ -468,7 +465,7 @@ class SkyBlockMenuView(
                 if (entry != null) {
                     val slot = slotFor(entry)
                     if (slot != null) {
-                        Interaction.clickSlot(handler.syncId, slot.index, 0, SlotActionType.PICKUP)
+                        Interaction.clickSlot(menu.containerId, slot.containerSlot, 0, ContainerInput.PICKUP)
                     }
                 }
                 return true
@@ -482,7 +479,7 @@ class SkyBlockMenuView(
                 if (entry != null) {
                     val slot = slotFor(entry)
                     if (slot != null) {
-                        Interaction.clickSlot(handler.syncId, slot.index, 0, SlotActionType.PICKUP)
+                        Interaction.clickSlot(menu.containerId, slot.containerSlot, 0, ContainerInput.PICKUP)
                     }
                 }
                 return true
@@ -496,7 +493,7 @@ class SkyBlockMenuView(
                 if (entry != null) {
                     val slot = slotFor(entry)
                     if (slot != null) {
-                        Interaction.clickSlot(handler.syncId, slot.index, 0, SlotActionType.PICKUP)
+                        Interaction.clickSlot(menu.containerId, slot.containerSlot, 0, ContainerInput.PICKUP)
                     }
                 }
                 return true
@@ -519,14 +516,14 @@ class SkyBlockMenuView(
                 val slot = slotFor(entry)
                 if (slot != null) {
                     val button = click.button()                 // 0 = left, 1 = right
-                    val shift = MinecraftClient.getInstance().isShiftPressed
+                    val shift = Minecraft.getInstance().hasShiftDown()
                     val action = when {
-                        button == 1 -> SlotActionType.PICKUP            // right-click
-                        shift -> SlotActionType.QUICK_MOVE              // shift+left
-                        else -> SlotActionType.PICKUP                  // left-click
+                        button == 1 -> ContainerInput.PICKUP            // right-click
+                        shift -> ContainerInput.QUICK_MOVE              // shift+left
+                        else -> ContainerInput.PICKUP                  // left-click
                     }
                     // THE only sanctioned action path (§2.3, §11). Real slot index, same syncId.
-                    Interaction.clickSlot(handler.syncId, slot.index, button, action)
+                    Interaction.clickSlot(menu.containerId, slot.containerSlot, button, action)
                 }
             }
             return true
@@ -550,7 +547,7 @@ class SkyBlockMenuView(
 
     // ── input: keyboard ─────────────────────────────────────────────────────────
 
-    override fun charTyped(input: CharInput): Boolean {
+    override fun charTyped(input: CharacterEvent): Boolean {
         if (searchFocused) {
             val cp = input.codepoint()
             if (cp >= 0x20 && cp != 0x7F) {
@@ -563,7 +560,7 @@ class SkyBlockMenuView(
         return super.charTyped(input)
     }
 
-    override fun keyPressed(input: KeyInput): Boolean {
+    override fun keyPressed(input: KeyEvent): Boolean {
         if (searchFocused) {
             when (input.key()) {
                 GLFW.GLFW_KEY_BACKSPACE -> {
@@ -619,7 +616,7 @@ class SkyBlockMenuView(
                             val slot = slotFor(entry)
                             if (slot != null) {
                                 // Direct response to physical keypress — §11 compliant.
-                                Interaction.clickSlot(handler.syncId, slot.index, 0, SlotActionType.PICKUP)
+                                Interaction.clickSlot(menu.containerId, slot.containerSlot, 0, ContainerInput.PICKUP)
                             }
                         }
                         return true
@@ -640,7 +637,7 @@ class SkyBlockMenuView(
      * list (per-rebuild, not per-frame).
      */
     private fun iconFor(entry: MenuEntry): ItemStack? =
-        cachedContainerSlots.getOrNull(entry.backingSlot)?.stack
+        cachedContainerSlots.getOrNull(entry.backingSlot)?.item
 
     /** The live backing [net.minecraft.screen.slot.Slot] for an entry (for click routing). */
     private fun slotFor(entry: MenuEntry) =

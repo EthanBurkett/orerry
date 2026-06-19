@@ -28,7 +28,7 @@ object OrreryMod : ClientModInitializer {
         // Phase-0 marker — visible in the log when the mod loads successfully.
         // References Tokens to prove the design-token pipeline links into the mod (§5.5).
         logger.info(
-            "[Orrery] booted — brass instrument in the void · MC 1.21.11" +
+            "[Orrery] booted — brass instrument in the void · MC 26.1.2" +
                 " · primary accent #${Integer.toHexString(Tokens.Color.brassBase).takeLast(6).uppercase()}" +
                 " · motion.base ${Tokens.Motion.base}ms"
         )

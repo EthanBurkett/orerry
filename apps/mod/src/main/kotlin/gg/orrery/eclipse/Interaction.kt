@@ -1,7 +1,7 @@
 package gg.orrery.eclipse
 
-import net.minecraft.client.MinecraftClient
-import net.minecraft.screen.slot.SlotActionType
+import net.minecraft.client.Minecraft
+import net.minecraft.world.inventory.ContainerInput
 
 /**
  * THE single compliance chokepoint for all menu interactions (DESIGN_SPEC §2.3, §6.3, §11;
@@ -51,11 +51,11 @@ object Interaction {
      * @param button     Mouse button: 0 = left, 1 = right, 2 = middle.
      * @param action     The `SlotActionType` (PICKUP, QUICK_MOVE, THROW, etc.).
      */
-    fun clickSlot(syncId: Int, slotIndex: Int, button: Int, action: SlotActionType) {
-        val client = MinecraftClient.getInstance()
+    fun clickSlot(syncId: Int, slotIndex: Int, button: Int, action: ContainerInput) {
+        val client = Minecraft.getInstance()
         val player = client.player ?: return          // not in-game — no-op
-        val manager = client.interactionManager ?: return  // manager unavailable — no-op
-        manager.clickSlot(syncId, slotIndex, button, action, player)
+        val manager = client.gameMode ?: return  // manager unavailable — no-op
+        manager.handleContainerInput(syncId, slotIndex, button, action, player)
     }
 
     // -------------------------------------------------------------------------
@@ -67,7 +67,7 @@ object Interaction {
      * Equivalent to a plain left mouse button press on a vanilla slot.
      */
     fun leftClick(syncId: Int, slotIndex: Int) =
-        clickSlot(syncId, slotIndex, 0, SlotActionType.PICKUP)
+        clickSlot(syncId, slotIndex, 0, ContainerInput.PICKUP)
 
     /**
      * Right-click (PICKUP with button=1) the slot at [slotIndex].
@@ -75,12 +75,12 @@ object Interaction {
      * or places one item).
      */
     fun rightClick(syncId: Int, slotIndex: Int) =
-        clickSlot(syncId, slotIndex, 1, SlotActionType.PICKUP)
+        clickSlot(syncId, slotIndex, 1, ContainerInput.PICKUP)
 
     /**
      * Shift-click (QUICK_MOVE) the slot at [slotIndex].
      * Equivalent to Shift+Left-click on a vanilla slot.
      */
     fun shiftClick(syncId: Int, slotIndex: Int) =
-        clickSlot(syncId, slotIndex, 0, SlotActionType.QUICK_MOVE)
+        clickSlot(syncId, slotIndex, 0, ContainerInput.QUICK_MOVE)
 }

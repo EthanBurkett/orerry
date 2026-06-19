@@ -1,13 +1,13 @@
 package gg.orrery.atlas
 
-import net.minecraft.component.DataComponentTypes
-import net.minecraft.entity.player.PlayerInventory
-import net.minecraft.item.ItemStack
-import net.minecraft.nbt.NbtCompound
-import net.minecraft.nbt.NbtElement
-import net.minecraft.registry.Registries
-import net.minecraft.screen.ScreenHandler
-import net.minecraft.text.Text
+import net.minecraft.core.component.DataComponents
+import net.minecraft.world.entity.player.Inventory
+import net.minecraft.world.item.ItemStack
+import net.minecraft.nbt.CompoundTag
+import net.minecraft.nbt.Tag
+import net.minecraft.core.registries.BuiltInRegistries
+import net.minecraft.world.inventory.AbstractContainerMenu
+import net.minecraft.network.chat.Component
 
 /**
  * AtlasAdapter — the ONLY Atlas file that imports net.minecraft.*.
@@ -77,7 +77,7 @@ object AtlasAdapter {
      * §2 compliance: [parse] only reads data already delivered to the client
      * in the container-open packet.
      */
-    fun parseAndRecognize(title: Text, handler: ScreenHandler): Pair<ParsedMenu, MenuRecognizer?> {
+    fun parseAndRecognize(title: Component, handler: AbstractContainerMenu): Pair<ParsedMenu, MenuRecognizer?> {
         val menu = parse(title, handler)
         val recognizer = MenuRegistry.recognize(menu)
         return menu to recognizer
@@ -87,7 +87,7 @@ object AtlasAdapter {
      * Parses the open container described by [title] and [handler] into a
      * [ParsedMenu] with all § codes stripped and ExtraAttributes flattened.
      */
-    fun parse(title: Text, handler: ScreenHandler): ParsedMenu {
+    fun parse(title: Component, handler: AbstractContainerMenu): ParsedMenu {
         // Strip § codes from the raw title, then strip any trailing click-hints
         // (e.g. "SkyBlock Menu (Click)" → "SkyBlock Menu"). Punch-list item.
         val strippedTitle = stripClickHints(stripCodes(title.getString()))
@@ -99,11 +99,11 @@ object AtlasAdapter {
         // position in this filtered list equals its clickSlot slot id — that is
         // the index the backing-slot round-trip and the icon lookup both use, so
         // the indices stay aligned (punch-list #1 + #2).
-        val containerSlots = handler.slots.filter { it.inventory !is PlayerInventory }
+        val containerSlots = handler.slots.filter { it.container !is Inventory }
         val size = containerSlots.size
 
         val items: List<ParsedItem?> = containerSlots.mapIndexed { slotId, slot ->
-            parseItem(slotId, slot.stack)
+            parseItem(slotId, slot.item)
         }
 
         return ParsedMenu(
@@ -123,17 +123,17 @@ object AtlasAdapter {
 
         // Minecraft item registry id — e.g. "minecraft:gray_stained_glass_pane".
         // Used by classifyEntry to identify filler panes without relying on name heuristics.
-        val itemId: String = Registries.ITEM.getId(stack.item).toString()
+        val itemId: String = BuiltInRegistries.ITEM.getKey(stack.item).toString()
 
         // Display name — getName() returns CUSTOM_NAME if set, else the item's
         // built-in name. SkyBlock always uses CUSTOM_NAME for its items.
         // rawName retains § color codes so deriveRarity can read the leading color.
-        val rawName = stack.getName().getString()
+        val rawName = stack.hoverName.getString()
         val name = stripCodes(rawName)
 
         // Lore — stored in DataComponentTypes.LORE as a LoreComponent.
         // lines() returns the List<Text> of unstyled lore entries.
-        val loreComponent = stack.get(DataComponentTypes.LORE)
+        val loreComponent = stack.get(DataComponents.LORE)
         val lore: List<String> = loreComponent
             ?.lines()
             ?.map { stripCodes(it.getString()) }
@@ -141,15 +141,15 @@ object AtlasAdapter {
 
         // ExtraAttributes — SkyBlock stores item NBT in the custom_data component
         // as a compound with a top-level "ExtraAttributes" sub-compound.
-        val customData = stack.get(DataComponentTypes.CUSTOM_DATA)
+        val customData = stack.get(DataComponents.CUSTOM_DATA)
         val extraAttributes: Map<String, String>
         val skyblockId: String?
 
         if (customData != null) {
-            val rootNbt: NbtCompound = customData.copyNbt()
+            val rootNbt: CompoundTag = customData.copyTag()
             // SkyBlock encodes extra data under the "ExtraAttributes" key.
             // In Yarn 1.21.11, getCompoundOrEmpty(key) returns NbtCompound (never null).
-            val extraNbt: NbtCompound = if (rootNbt.contains("ExtraAttributes")) {
+            val extraNbt: CompoundTag = if (rootNbt.contains("ExtraAttributes")) {
                 rootNbt.getCompoundOrEmpty("ExtraAttributes")
             } else {
                 // Fallback: treat the root compound itself as attributes if no
@@ -168,10 +168,10 @@ object AtlasAdapter {
             //   NbtElement.STRING_TYPE == 8
             //   NbtCompound.getString(key, fallback) : String  (avoids Optional unwrap)
             val attrs = mutableMapOf<String, String>()
-            for (key in extraNbt.getKeys()) {
-                val element: NbtElement? = extraNbt.get(key)
-                if (element != null && element.type == NbtElement.STRING_TYPE) {
-                    attrs[key] = extraNbt.getString(key, "")
+            for (key in extraNbt.keySet()) {
+                val element: Tag? = extraNbt.get(key)
+                if (element != null && element.id == Tag.TAG_STRING) {
+                    attrs[key] = extraNbt.getStringOr(key, "")
                 }
             }
             extraAttributes = attrs

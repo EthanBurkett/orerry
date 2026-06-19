@@ -1,11 +1,11 @@
 package gg.orrery.mixin;
 
 import gg.orrery.eclipse.EclipseViews;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.screen.ingame.GenericContainerScreen;
-import net.minecraft.screen.GenericContainerScreenHandler;
-import net.minecraft.text.Text;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.screens.inventory.ContainerScreen;
+import net.minecraft.world.inventory.ChestMenu;
+import net.minecraft.network.chat.Component;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -15,7 +15,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  * MinecraftClientMixin — the Eclipse interception spine (DESIGN_SPEC §6.3, ADR 0003 §4).
  *
  * <p>Injects at the HEAD of {@code MinecraftClient.setScreen(Screen)}. When the incoming
- * screen is a vanilla chest screen (a {@link GenericContainerScreen} — the UI every SkyBlock
+ * screen is a vanilla chest screen (a {@link ContainerScreen} — the UI every SkyBlock
  * menu uses) and is NOT already an Orrery screen, it asks Eclipse for an Orrery view. If
  * Eclipse owns the menu, the original {@code setScreen} call is cancelled and re-issued with
  * the Orrery screen instead.
@@ -23,7 +23,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  * <h2>Why setScreen and not a HandledScreen ctor hook</h2>
  * The container-open packet causes the client to construct the vanilla {@code HandledScreen}
  * and call {@code setScreen} with it. Intercepting at {@code setScreen} lets us swap the
- * VISUAL screen while reusing the very same {@link GenericContainerScreenHandler} the vanilla
+ * VISUAL screen while reusing the very same {@link ChestMenu} the vanilla
  * screen carries (same {@code syncId}) — so clicks routed through Eclipse hit the real server
  * slots and the open/close lifecycle stays vanilla-correct. We do NOT touch the handler or
  * any packet (§2 compliance — the swap is render-only).
@@ -48,28 +48,28 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  *   <li>{@code Screen.getTitle()} = method_25440 -> {@code Text}</li>
  * </ul>
  */
-@Mixin(MinecraftClient.class)
-public abstract class MinecraftClientMixin {
+@Mixin(Minecraft.class)
+public abstract class MinecraftMixin {
 
     @Inject(method = "setScreen", at = @At("HEAD"), cancellable = true)
     private void orrery$interceptHandledScreen(Screen screen, CallbackInfo ci) {
         // Only intercept the vanilla chest UI SkyBlock menus use. Anything else (including our
         // own Orrery screen) falls through untouched — this also prevents re-interception.
-        if (!(screen instanceof GenericContainerScreen)) {
+        if (!(screen instanceof ContainerScreen)) {
             return;
         }
 
         try {
-            GenericContainerScreen containerScreen = (GenericContainerScreen) screen;
-            GenericContainerScreenHandler handler = containerScreen.getScreenHandler();
-            Text title = containerScreen.getTitle();
+            ContainerScreen containerScreen = (ContainerScreen) screen;
+            ChestMenu handler = containerScreen.getMenu();
+            Component title = containerScreen.getTitle();
 
             // Ask Eclipse: does Orrery own this menu? Reuses the live handler (same syncId).
             Screen orreryScreen = EclipseViews.orreryScreenFor(handler, title);
             if (orreryScreen != null) {
                 // Cancel the vanilla screen and open the Orrery one in its place.
                 ci.cancel();
-                MinecraftClient.getInstance().setScreen(orreryScreen);
+                Minecraft.getInstance().setScreen(orreryScreen);
             }
             // else: not recognized -> do nothing -> vanilla screen opens normally.
         } catch (Throwable t) {

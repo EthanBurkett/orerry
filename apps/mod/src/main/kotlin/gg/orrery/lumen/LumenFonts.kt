@@ -1,6 +1,6 @@
 package gg.orrery.lumen
 
-import net.minecraft.util.Identifier
+import net.minecraft.resources.Identifier
 
 /**
  * LumenFonts — Orrery's custom typeface identifiers (ADR 0005 §3, DESIGN_SPEC §5.3).
@@ -41,19 +41,19 @@ object LumenFonts {
      * Use for menu titles, headings, the Orrery wordmark, and key UI labels (§5.3).
      * Font JSON: `assets/orrery/font/display.json` → `assets/orrery/font/space_grotesk.ttf`.
      */
-    val DISPLAY: Identifier = Identifier.of("orrery", "display")
+    val DISPLAY: Identifier = Identifier.fromNamespaceAndPath("orrery", "display")
 
     /**
      * Body typeface — Inter Regular (variable font, defaults to Regular axis at render scale).
      * Use for prose, labels, secondary text, and most UI copy (§5.3).
      * Font JSON: `assets/orrery/font/body.json` → `assets/orrery/font/inter.ttf`.
      */
-    val BODY: Identifier = Identifier.of("orrery", "body")
+    val BODY: Identifier = Identifier.fromNamespaceAndPath("orrery", "body")
 
     /**
      * Monospace typeface — JetBrains Mono Regular.
      * Use for prices, stats, counts, and any data that benefits from tabular numerals (§5.3).
      * Font JSON: `assets/orrery/font/mono.json` → `assets/orrery/font/jetbrains_mono.ttf`.
      */
-    val MONO: Identifier = Identifier.of("orrery", "mono")
+    val MONO: Identifier = Identifier.fromNamespaceAndPath("orrery", "mono")
 }
